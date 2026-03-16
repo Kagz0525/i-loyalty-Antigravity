@@ -30,10 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for auth state changes – this fires on page load (INITIAL_SESSION)
-    // as well as on sign-in / sign-out / token refresh.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
+        // Always set loading true while we resolve the profile.
+        // This prevents ProtectedRoute from redirecting to /login prematurely.
+        setLoading(true);
         const isNewUser = event === 'SIGNED_IN' || event === 'USER_UPDATED';
         await fetchAndSyncProfile(session.user.id, session.user.email || '', isNewUser);
       } else {
@@ -45,49 +46,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * Fetches the profile from Supabase. If none exists, creates it using:
-   *   1. Supabase Auth user_metadata (set during signUp or Google OAuth)
-   *   2. localStorage fallback (for Google vendor pre-auth data)
-   *
-   * If a profile already exists but was just created (isNewUser), we still
-   * update it with localStorage data so that DB triggers don't win.
-   */
   const fetchAndSyncProfile = async (userId: string, email: string, isNewUser: boolean) => {
     try {
-      // Pull pre-auth data from localStorage (set before OAuth redirect)
       const savedRole = localStorage.getItem('signup_role') as UserRole | null;
       const savedName = localStorage.getItem('signup_name') || '';
       const savedBusinessName = localStorage.getItem('signup_businessName') || '';
       const savedMaxPoints = parseInt(localStorage.getItem('signup_maxPoints') || '3', 10);
       const hasLocalStorageData = !!savedRole;
 
-      // Get Supabase Auth metadata (works for both email & Google sign-ups)
       const { data: { user: authUser } } = await supabase.auth.getUser();
       const meta = authUser?.user_metadata || {};
 
-      // Resolve values with priority: localStorage > auth metadata > fallbacks
       const resolvedRole: UserRole = savedRole || (meta.role as UserRole) || 'customer';
       const googleName = meta.full_name || meta.name || '';
 
-      // For name: customers use their google name or the name they typed
-      // For vendors: use savedBusinessName (they typed it pre-auth)
       let resolvedName = '';
       let resolvedBusinessName: string | null = null;
       let resolvedMaxPoints: number | null = null;
 
       if (resolvedRole === 'vendor') {
-        // Business name comes from localStorage or metadata
         resolvedBusinessName = savedBusinessName || meta.business_name || googleName || email.split('@')[0];
-        // Vendor's "name" is their business name
         resolvedName = savedName || resolvedBusinessName;
         resolvedMaxPoints = savedMaxPoints || parseInt(meta.max_points || '3', 10);
       } else {
-        // Customer name: metadata from Google, or the name they typed (in metadata.name via signUp)
         resolvedName = savedName || googleName || meta.full_name || email.split('@')[0];
       }
 
-      // Fetch existing profile
       const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -97,7 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let profileData: any = null;
 
       if (fetchError && fetchError.code === 'PGRST116') {
-        // No profile exists – create one
         const newProfile = {
           id: userId,
           email,
@@ -121,14 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (existingProfile) {
         profileData = existingProfile;
 
-        // If we have fresh signup data in localStorage, always update the profile
-        // This handles the case where a DB trigger pre-created the profile
         if (hasLocalStorageData || isNewUser) {
-          const updatePayload: any = {
-            role: resolvedRole,
-          };
-
-          // Only override name/business if we have real data
+          const updatePayload: any = { role: resolvedRole };
           if (resolvedName) updatePayload.name = resolvedName;
           if (resolvedRole === 'vendor') {
             if (resolvedBusinessName) updatePayload.business_name = resolvedBusinessName;
@@ -152,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching profile:', fetchError);
       }
 
-      // Clear localStorage after we've used the data
       if (hasLocalStorageData) {
         localStorage.removeItem('signup_role');
         localStorage.removeItem('signup_name');
@@ -172,7 +148,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           maxPoints: profileData.max_points ?? undefined,
         });
       } else {
-        // Last resort fallback
         setUser({
           id: userId,
           name: resolvedName,
@@ -189,10 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // login() is called after email sign-in. The onAuthStateChange listener
-  // will handle the profile fetch automatically, so this is a no-op now.
   const login = (_email: string, _role: UserRole) => {
-    // Auth state change listener handles everything
+    // Handled by onAuthStateChange
   };
 
   const logout = async () => {
@@ -223,8 +196,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
+    // Always render children — ProtectedRoute handles the loading/user logic
     <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
