@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../supabaseClient';
+import { useAuth } from './AuthContext';
 
 export interface Vendor {
   id: string;
@@ -24,6 +26,7 @@ export interface LoyaltyRecord {
   points: number;
   maxPoints: number;
   visits: number;
+  rewardCode?: string;
 }
 
 export interface PointHistory {
@@ -46,117 +49,247 @@ interface DataContextType {
   resetPoints: (recordId: string) => void;
 }
 
-const initialVendors: Vendor[] = [
-  { id: 'v1', name: 'Joe', email: 'joe@coffee.com', businessName: "Joe's Coffee", phone: '081 111 2222' },
-  { id: 'v2', name: 'Sarah', email: 'sarah@bakery.com', businessName: "Sarah's Bakery", phone: '081 222 3333' },
-  { id: 'v3', name: 'Mike', email: 'mike@burger.com', businessName: "Mike's Burgers", phone: '081 333 4444' },
-];
-
-const initialCustomers: Customer[] = [
-  { id: 'c1', name: 'Alice Smith', email: 'alice@test.com', phone: '081 111 2222', joinedDate: '2023-05-03', birthday: '1990-05-08' },
-  { id: 'c2', name: 'Bob Jones', email: 'bob@test.com', phone: '081 222 3333', joinedDate: '2023-06-15' },
-  { id: 'c3', name: 'Charlie Brown', email: 'charlie@test.com', phone: '081 333 4444', joinedDate: '2023-08-20' },
-  { id: 'c4', name: 'Diana Prince', email: 'diana@test.com', phone: '081 444 5555', joinedDate: '2024-01-10' },
-  { id: 'c5', name: 'Evan Wright', email: 'evan@test.com', phone: '081 555 6666', joinedDate: '2024-02-14' },
-];
-
-const initialRecords: LoyaltyRecord[] = [
-  { id: 'r1', vendorId: 'v1', customerId: 'c1', points: 3, maxPoints: 10, visits: 5 },
-  { id: 'r2', vendorId: 'v1', customerId: 'c2', points: 10, maxPoints: 10, visits: 12 },
-  { id: 'r3', vendorId: 'v1', customerId: 'c3', points: 7, maxPoints: 10, visits: 8 },
-  { id: 'r4', vendorId: 'v2', customerId: 'c1', points: 5, maxPoints: 8, visits: 6 },
-  { id: 'r5', vendorId: 'v3', customerId: 'c1', points: 1, maxPoints: 5, visits: 1 },
-];
-
-const initialHistory: PointHistory[] = [
-  { id: 'h1', recordId: 'r1', date: '2025-08-30T04:43:00Z', type: 'earned' },
-  { id: 'h2', recordId: 'r1', date: '2025-09-07T09:33:00Z', type: 'earned' },
-  { id: 'h3', recordId: 'r1', date: '2025-10-18T14:09:00Z', type: 'earned' },
-];
-
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [vendors] = useState<Vendor[]>(initialVendors);
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
-  const [loyaltyRecords, setLoyaltyRecords] = useState<LoyaltyRecord[]>(initialRecords);
-  const [pointHistory, setPointHistory] = useState<PointHistory[]>(initialHistory);
+  const { user } = useAuth();
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loyaltyRecords, setLoyaltyRecords] = useState<LoyaltyRecord[]>([]);
+  const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
 
-  const addCustomer = (customer: Customer, vendorId: string, maxPoints: number) => {
-    setCustomers((prev) => [...prev, customer]);
-    setLoyaltyRecords((prev) => [
-      ...prev,
-      {
-        id: `r${Date.now()}`,
-        vendorId,
-        customerId: customer.id,
-        points: 0,
-        maxPoints,
-        visits: 0,
-      },
-    ]);
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    } else {
+      setVendors([]);
+      setCustomers([]);
+      setLoyaltyRecords([]);
+      setPointHistory([]);
+    }
+  }, [user]);
+
+  const fetchData = async () => {
+    // Fetch vendors (profiles with role='vendor')
+    const { data: vendorsData } = await supabase.from('profiles').select('*').eq('role', 'vendor');
+    if (vendorsData) {
+      setVendors(vendorsData.map(v => ({
+        id: v.id,
+        name: v.name,
+        email: v.email,
+        businessName: v.business_name,
+        phone: v.phone
+      })));
+    }
+
+    // Fetch customers
+    const { data: customersData } = await supabase.from('customers').select('*');
+    if (customersData) {
+      setCustomers(customersData.map(c => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        joinedDate: c.joined_date,
+        birthday: c.birthday
+      })));
+    }
+
+    // Fetch loyalty records
+    const { data: recordsData } = await supabase.from('loyalty_records').select('*');
+    if (recordsData) {
+      setLoyaltyRecords(recordsData.map(r => ({
+        id: r.id,
+        vendorId: r.vendor_id,
+        customerId: r.customer_id,
+        points: r.points,
+        maxPoints: r.max_points,
+        visits: r.visits,
+        rewardCode: r.reward_code
+      })));
+    }
+
+    // Fetch point history
+    const { data: historyData } = await supabase.from('point_history').select('*').order('date', { ascending: false });
+    if (historyData) {
+      setPointHistory(historyData.map(h => ({
+        id: h.id,
+        recordId: h.record_id,
+        date: h.date,
+        type: h.type
+      })));
+    }
   };
 
-  const removeCustomer = (recordId: string) => {
+  const generateRewardCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const addCustomer = async (customer: Customer, vendorId: string, maxPoints: number) => {
+    const { data: newCustomer } = await supabase
+      .from('customers')
+      .insert([{
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        joined_date: customer.joinedDate,
+        birthday: customer.birthday,
+        created_by: user?.id
+      }])
+      .select()
+      .single();
+
+    if (newCustomer) {
+      const mappedCustomer = {
+        id: newCustomer.id,
+        name: newCustomer.name,
+        email: newCustomer.email,
+        phone: newCustomer.phone,
+        joinedDate: newCustomer.joined_date,
+        birthday: newCustomer.birthday
+      };
+      setCustomers((prev) => [...prev, mappedCustomer]);
+
+      const { data: newRecord } = await supabase
+        .from('loyalty_records')
+        .insert([{
+          vendor_id: vendorId,
+          customer_id: newCustomer.id,
+          points: 0,
+          max_points: maxPoints,
+          visits: 0
+        }])
+        .select()
+        .single();
+
+      if (newRecord) {
+        setLoyaltyRecords((prev) => [
+          ...prev,
+          {
+            id: newRecord.id,
+            vendorId: newRecord.vendor_id,
+            customerId: newRecord.customer_id,
+            points: newRecord.points,
+            maxPoints: newRecord.max_points,
+            visits: newRecord.visits,
+            rewardCode: newRecord.reward_code
+          },
+        ]);
+      }
+    }
+  };
+
+  const removeCustomer = async (recordId: string) => {
+    await supabase.from('loyalty_records').delete().eq('id', recordId);
     setLoyaltyRecords((prev) => prev.filter((r) => r.id !== recordId));
     setPointHistory((prev) => prev.filter((h) => h.recordId !== recordId));
   };
 
-  const addPoint = (recordId: string, date?: string) => {
-    setLoyaltyRecords((prev) =>
-      prev.map((record) =>
-        record.id === recordId && record.points < record.maxPoints
-          ? { ...record, points: record.points + 1, visits: record.visits + 1 }
-          : record
-      )
-    );
-    setPointHistory((prev) => [
-      {
-        id: `h${Date.now()}`,
-        recordId,
-        date: date || new Date().toISOString(),
-        type: 'earned',
-      },
-      ...prev,
-    ]);
+  const addPoint = async (recordId: string, date?: string) => {
+    const record = loyaltyRecords.find(r => r.id === recordId);
+    if (record && record.points < record.maxPoints) {
+      const newPoints = record.points + 1;
+      const isRewardReady = newPoints >= record.maxPoints;
+      const rewardCode = isRewardReady ? generateRewardCode() : record.rewardCode;
+      const newVisits = record.visits + 1;
+
+      await supabase
+        .from('loyalty_records')
+        .update({ points: newPoints, visits: newVisits, reward_code: rewardCode })
+        .eq('id', recordId);
+
+      const historyDate = date || new Date().toISOString();
+      const { data: newHistory } = await supabase
+        .from('point_history')
+        .insert([{ record_id: recordId, date: historyDate, type: 'earned' }])
+        .select()
+        .single();
+
+      setLoyaltyRecords((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? { ...r, points: newPoints, visits: newVisits, rewardCode }
+            : r
+        )
+      );
+      
+      if (newHistory) {
+        setPointHistory((prev) => [
+          {
+            id: newHistory.id,
+            recordId: newHistory.record_id,
+            date: newHistory.date,
+            type: newHistory.type as 'earned' | 'redeemed',
+          },
+          ...prev,
+        ]);
+      }
+    }
   };
 
-  const removePoint = (historyId: string, recordId: string) => {
-    setPointHistory((prev) => prev.filter((h) => h.id !== historyId));
-    setLoyaltyRecords((prev) =>
-      prev.map((record) =>
-        record.id === recordId && record.points > 0
-          ? { ...record, points: record.points - 1 }
-          : record
-      )
-    );
+  const removePoint = async (historyId: string, recordId: string) => {
+    const record = loyaltyRecords.find(r => r.id === recordId);
+    if (record && record.points > 0) {
+      const newPoints = record.points - 1;
+      const isRewardReady = newPoints >= record.maxPoints;
+      const rewardCode = isRewardReady ? record.rewardCode : null;
+
+      await supabase.from('point_history').delete().eq('id', historyId);
+      await supabase.from('loyalty_records').update({ points: newPoints, reward_code: rewardCode }).eq('id', recordId);
+
+      setPointHistory((prev) => prev.filter((h) => h.id !== historyId));
+      setLoyaltyRecords((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? { ...r, points: newPoints, rewardCode: rewardCode || undefined }
+            : r
+        )
+      );
+    }
   };
 
-  const redeemReward = (recordId: string) => {
-    setLoyaltyRecords((prev) =>
-      prev.map((record) =>
-        record.id === recordId && record.points >= record.maxPoints
-          ? { ...record, points: 0, visits: record.visits + 1 }
-          : record
-      )
-    );
-    setPointHistory((prev) => [
-      {
-        id: `h${Date.now()}`,
-        recordId,
-        date: new Date().toISOString(),
-        type: 'redeemed',
-      },
-      ...prev,
-    ]);
+  const redeemReward = async (recordId: string) => {
+    const record = loyaltyRecords.find(r => r.id === recordId);
+    if (record && record.points >= record.maxPoints) {
+      const newVisits = record.visits + 1;
+
+      await supabase.from('loyalty_records').update({ points: 0, visits: newVisits, reward_code: null }).eq('id', recordId);
+
+      const { data: newHistory } = await supabase
+        .from('point_history')
+        .insert([{ record_id: recordId, date: new Date().toISOString(), type: 'redeemed' }])
+        .select()
+        .single();
+
+      setLoyaltyRecords((prev) =>
+        prev.map((r) =>
+          r.id === recordId
+            ? { ...r, points: 0, visits: newVisits, rewardCode: undefined }
+            : r
+        )
+      );
+      
+      if (newHistory) {
+        setPointHistory((prev) => [
+          {
+            id: newHistory.id,
+            recordId: newHistory.record_id,
+            date: newHistory.date,
+            type: newHistory.type as 'earned' | 'redeemed',
+          },
+          ...prev,
+        ]);
+      }
+    }
   };
 
-  const resetPoints = (recordId: string) => {
+  const resetPoints = async (recordId: string) => {
+    await supabase.from('loyalty_records').update({ points: 0, reward_code: null }).eq('id', recordId);
     setLoyaltyRecords((prev) =>
-      prev.map((record) =>
-        record.id === recordId
-          ? { ...record, points: 0 }
-          : record
+      prev.map((r) =>
+        r.id === recordId
+          ? { ...r, points: 0, rewardCode: undefined }
+          : r
       )
     );
   };

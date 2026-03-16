@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { Search, Plus, CheckCircle2, Gift } from 'lucide-react';
+import { Search, Plus, CheckCircle2, Gift, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 
@@ -9,7 +9,11 @@ export default function VendorDashboard() {
   const { user } = useAuth();
   const { customers, loyaltyRecords, addCustomer, addPoint, redeemReward } = useData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPlanLimitModalOpen, setIsPlanLimitModalOpen] = useState(false);
+  const [isResetPointsModalOpen, setIsResetPointsModalOpen] = useState(false);
+  const [selectedCardForReset, setSelectedCardForReset] = useState<any>(null);
   const [selectedCustomerRecord, setSelectedCustomerRecord] = useState<any>(null);
 
   // Form state
@@ -20,16 +24,23 @@ export default function VendorDashboard() {
 
   // Filter records for this vendor
   const vendorRecords = loyaltyRecords.filter((r) => r.vendorId === user?.id);
+  const isPlanLimitReached = user?.planType === 'Starter' && vendorRecords.length >= 10;
 
   // Join records with customer data
   const customerCards = vendorRecords.map((record) => {
     const customer = customers.find((c) => c.id === record.customerId);
     return { ...record, customer };
-  }).filter(card => 
-    card.customer && 
-    (card.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     card.customer.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  }).filter(card => {
+    if (!card.customer) return false;
+    
+    const matchesSearch = card.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          card.customer.phone.includes(searchQuery) ||
+                          card.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+                          
+    const matchesFilter = showRewardsDue ? card.points >= card.maxPoints : true;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -62,7 +73,7 @@ export default function VendorDashboard() {
       joinedDate: new Date().toISOString().split('T')[0],
     };
 
-    addCustomer(newCustomer, user!.id, 10); // Default max points 10
+    addCustomer(newCustomer, user!.id, 5); // Default max points 5
     setIsAddModalOpen(false);
     setNewCustomerName('');
     setNewCustomerEmail('');
@@ -72,17 +83,39 @@ export default function VendorDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <div className="relative max-w-md mx-auto">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+        <div className="max-w-md mx-auto flex items-center gap-3">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm shadow-sm"
+              placeholder={`Search name, email or phone # (${customerCards.length})`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm"
-            placeholder="Search Customer..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <button
+            onClick={() => setShowRewardsDue(!showRewardsDue)}
+            className={`flex flex-col items-center justify-center px-2 h-[46px] rounded-xl border transition-all ${
+              showRewardsDue 
+                ? 'bg-orange-50 border-orange-200 text-orange-600 min-w-[72px] shadow-sm' 
+                : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50 min-w-[46px]'
+            }`}
+            title="Filter by Rewards Due"
+          >
+            <Filter className={`w-5 h-5 ${showRewardsDue ? 'fill-orange-600 text-orange-600' : ''}`} />
+            {showRewardsDue && <span className="text-[9px] font-bold mt-0.5 leading-none whitespace-nowrap">Rewards Due</span>}
+          </button>
         </div>
       </div>
 
@@ -116,7 +149,7 @@ export default function VendorDashboard() {
                           i < card.points
                             ? isRewardReady
                               ? 'bg-white'
-                              : 'bg-indigo-600'
+                              : 'bg-orange-500'
                             : isRewardReady
                             ? 'bg-emerald-400/50'
                             : 'bg-gray-200'
@@ -144,17 +177,23 @@ export default function VendorDashboard() {
 
                 {/* Actions */}
                 {isRewardReady && (
-                  <div className="flex gap-3 mt-6">
+                  <div className="flex flex-col gap-3 mt-6">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        redeemReward(card.id);
+                        setSelectedCardForReset(card);
+                        setIsResetPointsModalOpen(true);
                       }}
-                      className="flex-1 flex items-center justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-emerald-700 bg-white hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
+                      className="w-full flex items-center justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-emerald-700 bg-white hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
                     >
                       <Gift className="w-4 h-4 mr-2" />
                       Redeem Reward
                     </button>
+                    {card.rewardCode && (
+                      <div className="text-center text-emerald-100 text-sm font-medium mt-1">
+                        Customer Code: {card.rewardCode}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -172,11 +211,92 @@ export default function VendorDashboard() {
 
       {/* Floating Add Button */}
       <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-8 right-8 w-[72px] h-[72px] bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-700 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 z-20"
+        onClick={() => {
+          if (isPlanLimitReached) {
+            setIsPlanLimitModalOpen(true);
+            return;
+          }
+          setIsAddModalOpen(true);
+        }}
+        className="fixed bottom-8 right-8 w-[72px] h-[72px] bg-orange-500 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-orange-600 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 z-20"
       >
         <Plus className="w-8 h-8" />
       </button>
+
+      {/* Plan Limit Modal */}
+      <AnimatePresence>
+        {isPlanLimitModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setIsPlanLimitModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 overflow-hidden text-center"
+            >
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Plan Limit Reached</h2>
+              <p className="text-gray-600 mb-6">
+                You have reached the limit of 10 customers on the Starter plan. Please upgrade to the Pro plan in your profile to add more.
+              </p>
+              <button
+                onClick={() => setIsPlanLimitModalOpen(false)}
+                className="w-full py-2.5 px-4 bg-orange-500 rounded-xl text-sm font-medium text-white hover:bg-orange-600 transition-colors"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Points Modal */}
+      <AnimatePresence>
+        {isResetPointsModalOpen && selectedCardForReset && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setIsResetPointsModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 overflow-hidden text-center"
+            >
+              <h2 className="text-xl font-bold text-[#0f172a] mb-4">Reset Points</h2>
+              <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+                Before resetting these points ensure the customer has redeemed their reward with this confirmation code {selectedCardForReset.rewardCode}
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    redeemReward(selectedCardForReset.id);
+                    setIsResetPointsModalOpen(false);
+                  }}
+                  className="w-full py-2.5 px-4 bg-[#e1000f] rounded-xl text-sm font-bold text-white hover:bg-red-700 transition-colors"
+                >
+                  Reset Point Now
+                </button>
+                <button
+                  onClick={() => setIsResetPointsModalOpen(false)}
+                  className="w-full py-2.5 px-4 bg-white border border-gray-300 rounded-xl text-sm font-medium text-[#475569] hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add Customer Modal */}
       <AnimatePresence>
@@ -202,7 +322,7 @@ export default function VendorDashboard() {
                   <input
                     type="text"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     value={newCustomerName}
                     onChange={(e) => setNewCustomerName(e.target.value)}
                   />
@@ -212,7 +332,7 @@ export default function VendorDashboard() {
                   <input
                     type="email"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     value={newCustomerEmail}
                     onChange={(e) => setNewCustomerEmail(e.target.value)}
                   />
@@ -223,7 +343,7 @@ export default function VendorDashboard() {
                     type="tel"
                     required
                     placeholder="000 000 0000"
-                    className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
+                    className={`w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
                       phoneError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                     }`}
                     value={newCustomerPhone}
@@ -243,7 +363,7 @@ export default function VendorDashboard() {
                   <button
                     type="submit"
                     disabled={!!phoneError}
-                    className="flex-1 py-2.5 px-4 bg-indigo-600 rounded-xl text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 px-4 bg-orange-500 rounded-xl text-sm font-medium text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Add Customer
                   </button>

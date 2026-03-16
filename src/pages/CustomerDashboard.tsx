@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { Search, CheckCircle2 } from 'lucide-react';
+import { Search, CheckCircle2, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import VendorDetailsModal from '../components/VendorDetailsModal';
 
@@ -9,6 +9,7 @@ export default function CustomerDashboard() {
   const { user } = useAuth();
   const { vendors, loyaltyRecords } = useData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [selectedVendorRecord, setSelectedVendorRecord] = useState<{ record: any; vendor: any } | null>(null);
 
   // Filter records for this customer
@@ -18,26 +19,54 @@ export default function CustomerDashboard() {
   const vendorCards = customerRecords.map((record) => {
     const vendor = vendors.find((v) => v.id === record.vendorId);
     return { ...record, vendor };
-  }).filter(card => 
-    card.vendor && 
-    (card.vendor.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     card.vendor.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  }).filter(card => {
+    if (!card.vendor) return false;
+    
+    const matchesSearch = card.vendor.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          card.vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (card.vendor.phone && card.vendor.phone.includes(searchQuery));
+                          
+    const matchesFilter = showRewardsDue ? card.points >= card.maxPoints : true;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <div className="relative max-w-md mx-auto">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+        <div className="max-w-md mx-auto flex items-center gap-3">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm shadow-sm"
+              placeholder={`Search vendor name or phone number (${vendorCards.length})`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm"
-            placeholder="Search Vendor..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <button
+            onClick={() => setShowRewardsDue(!showRewardsDue)}
+            className={`flex flex-col items-center justify-center px-2 h-[46px] rounded-xl border transition-all ${
+              showRewardsDue 
+                ? 'bg-orange-50 border-orange-200 text-orange-600 min-w-[72px] shadow-sm' 
+                : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50 min-w-[46px]'
+            }`}
+            title="Filter by Rewards Due"
+          >
+            <Filter className={`w-5 h-5 ${showRewardsDue ? 'fill-orange-600 text-orange-600' : ''}`} />
+            {showRewardsDue && <span className="text-[9px] font-bold mt-0.5 leading-none whitespace-nowrap">Rewards Due</span>}
+          </button>
         </div>
       </div>
 
@@ -71,7 +100,7 @@ export default function CustomerDashboard() {
                           i < card.points
                             ? isRewardReady
                               ? 'bg-white'
-                              : 'bg-indigo-600'
+                              : 'bg-orange-500'
                             : isRewardReady
                             ? 'bg-emerald-400/50'
                             : 'bg-gray-200'

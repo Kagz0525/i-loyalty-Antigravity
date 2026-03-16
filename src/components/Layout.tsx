@@ -3,9 +3,11 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
+import PlanModal from './PlanModal';
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,19 +33,22 @@ export default function Layout() {
             {user?.role === 'vendor' && (
               <button
                 onClick={() => {}}
-                className="w-10 h-10 bg-white text-indigo-600 rounded-full shadow-sm border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="w-10 h-10 bg-white text-orange-600 rounded-full shadow-sm border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
                 title="Scan QR Code"
               >
                 <QrCode className="w-5 h-5" />
               </button>
             )}
-            <h1 className="text-sm font-semibold text-indigo-600 tracking-tight">
+            <h1 
+              onClick={() => navigate('/profile')}
+              className="text-sm font-semibold text-orange-600 tracking-tight cursor-pointer hover:text-orange-800 transition-colors"
+            >
               Welcome, {user?.name || user?.businessName || 'Guest'}
             </h1>
           </div>
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500"
           >
             <span className="sr-only">Open sidebar</span>
             {isSidebarOpen ? (
@@ -81,9 +86,24 @@ export default function Layout() {
                     {user?.businessName || user?.name}
                   </h2>
                   <p className="text-sm text-gray-500">{user?.email}</p>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2 capitalize">
-                    {user?.role}
-                  </span>
+                  <div className="flex items-center gap-2 mt-2">
+                    {user?.role === 'vendor' ? (
+                      <span 
+                        onClick={() => setIsPlanModalOpen(true)}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                          user?.planType === 'Pro' 
+                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200' 
+                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        }`}
+                      >
+                        {user?.planType || 'Starter'} Plan
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 capitalize">
+                        {user?.role}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsSidebarOpen(false)}
@@ -104,13 +124,13 @@ export default function Layout() {
                         onClick={() => setIsSidebarOpen(false)}
                         className={`group flex items-center px-2 py-2 text-base font-medium rounded-md ${
                           isActive
-                            ? 'bg-indigo-50 text-indigo-600'
+                            ? 'bg-orange-50 text-orange-600'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         }`}
                       >
                         <item.icon
                           className={`mr-4 flex-shrink-0 h-6 w-6 ${
-                            isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
+                            isActive ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-500'
                           }`}
                           aria-hidden="true"
                         />
@@ -150,6 +170,11 @@ export default function Layout() {
       <main className="flex-1 relative z-10">
         <Outlet />
       </main>
+
+      <PlanModal 
+        isOpen={isPlanModalOpen} 
+        onClose={() => setIsPlanModalOpen(false)} 
+      />
     </div>
   );
 }

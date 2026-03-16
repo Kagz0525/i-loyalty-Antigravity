@@ -83,7 +83,7 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
 
               <div className="p-6 sm:p-8 pb-6 text-center mt-8 sm:mt-0">
                 <h2 className="text-xl font-bold text-gray-900 mb-1">Loyalty Breakdown</h2>
-                <p className="text-lg text-blue-600 mb-2">{vendor.businessName}</p>
+                <p className="text-lg text-orange-600 mb-2">{vendor.businessName}</p>
                 <p className="text-gray-900 font-medium">
                   {latestRecord.points} / {latestRecord.maxPoints}
                 </p>
@@ -134,25 +134,27 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
               </div>
 
               <div className="p-6 sm:p-8 pt-6 pb-8 space-y-6 sm:rounded-b-2xl">
-                <button
-                  onClick={handleRemoveVendor}
-                  className="flex items-center text-gray-900 hover:text-red-600 transition-colors w-full text-left"
-                >
-                  <Trash2 className="w-7 h-7 mr-4 text-red-600" />
-                  <span className="font-medium text-base">Remove Vendor</span>
-                </button>
-                
                 <div className="flex items-center text-gray-900">
-                  <Phone className="w-6 h-6 mr-4 text-blue-600" />
+                  <Phone className="w-6 h-6 mr-4 text-orange-600" />
                   <span className="font-medium text-base">Phone Number: 081 111 2222</span>
                 </div>
                 
                 <div className="flex items-center text-gray-900">
-                  <Mail className="w-6 h-6 mr-4 text-blue-600" />
+                  <Mail className="w-6 h-6 mr-4 text-orange-600" />
                   <span className="font-medium text-base">
                     Email: {vendor.email}
                   </span>
                 </div>
+
+                <button
+                  onClick={handleRemoveVendor}
+                  className="flex items-center text-gray-900 hover:text-red-600 transition-colors w-full text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mr-2">
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </div>
+                  <span className="font-medium text-base">Remove Vendor</span>
+                </button>
               </div>
             </motion.div>
           </div>

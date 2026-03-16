@@ -3,7 +3,7 @@ export default function About() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">About LoyaltyMVP</h1>
-        <div className="prose prose-indigo max-w-none text-gray-600">
+        <div className="prose prose-orange max-w-none text-gray-600">
           <p className="text-lg mb-4">
             Welcome to LoyaltyMVP, the simplest way to manage and track loyalty points for your favorite local businesses.
           </p>
