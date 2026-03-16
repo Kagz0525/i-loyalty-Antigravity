@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, UserCircle2, Eye, EyeOff, Info, ChevronDown, X } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
-// ─── Test email persistence (survives navigation, cleared only by "Clear site data") ───
+// ─── Test email persistence ───────────────────────────────────────────────────
 const TEST_EMAILS_KEY = 'iloyalty_test_emails';
-
 function getSavedEmails(): string[] {
   try { return JSON.parse(localStorage.getItem(TEST_EMAILS_KEY) || '[]'); }
   catch { return []; }
@@ -22,6 +21,7 @@ function removeEmail(email: string) {
 }
 
 // ─── Google icon ──────────────────────────────────────────────────────────────
+// NOTE: Defined OUTSIDE Login component so React never remounts it
 const GoogleIcon = ({ greyed = false }: { greyed?: boolean }) => (
   <svg className="w-5 h-5 mr-2 flex-shrink-0" viewBox="0 0 24 24">
     <path fill={greyed ? '#9CA3AF' : '#4285F4'} d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -31,10 +31,56 @@ const GoogleIcon = ({ greyed = false }: { greyed?: boolean }) => (
   </svg>
 );
 
-// ─── Combo email input ────────────────────────────────────────────────────────
-function ComboEmailInput({ value, onChange, id, placeholder }: {
-  value: string; onChange: (v: string) => void; id: string; placeholder?: string;
-}) {
+// ─── PasswordField ────────────────────────────────────────────────────────────
+// CRITICAL: Must be defined OUTSIDE Login so React reuses the same component
+// type across renders. Defining it inside would cause React to unmount/remount
+// the <input> on every keystroke — losing focus each time.
+interface PasswordFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
+  autoComplete: string;
+}
+function PasswordField({ id, label, value, onChange, show, onToggleShow, autoComplete }: PasswordFieldProps) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          id={id}
+          type={show ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          required
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 sm:text-sm pr-10"
+          placeholder="••••••••"
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          tabIndex={-1}
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+        >
+          {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ComboEmailInput ──────────────────────────────────────────────────────────
+// Also defined OUTSIDE Login for the same focus-stability reason
+interface ComboEmailInputProps {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}
+function ComboEmailInput({ id, value, onChange, placeholder }: ComboEmailInputProps) {
   const [saved, setSaved] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -63,7 +109,10 @@ function ComboEmailInput({ value, onChange, id, placeholder }: {
     <div ref={ref} className="relative">
       <div className="relative flex items-center">
         <input
-          id={id} type="email" autoComplete="off" required
+          id={id}
+          type="email"
+          autoComplete="off"
+          required
           value={value}
           onChange={e => { onChange(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -71,8 +120,12 @@ function ComboEmailInput({ value, onChange, id, placeholder }: {
           className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 sm:text-sm pr-9"
         />
         {saved.length > 0 && (
-          <button type="button" tabIndex={-1} onClick={() => setOpen(p => !p)}
-            className="absolute right-2.5 text-gray-400 hover:text-gray-600 focus:outline-none">
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setOpen(p => !p)}
+            className="absolute right-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+          >
             <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
         )}
@@ -85,13 +138,19 @@ function ComboEmailInput({ value, onChange, id, placeholder }: {
           <ul className="max-h-44 overflow-y-auto">
             {filtered.map(email => (
               <li key={email} className="flex items-center justify-between px-3 py-2 hover:bg-orange-50 group cursor-pointer">
-                <button type="button"
+                <button
+                  type="button"
                   className="flex-1 text-left text-sm text-gray-700 group-hover:text-orange-700 truncate"
-                  onClick={() => { onChange(email); setOpen(false); }}>
+                  onClick={() => { onChange(email); setOpen(false); }}
+                >
                   {email}
                 </button>
-                <button type="button" onClick={e => handleDelete(e, email)}
-                  className="ml-2 text-gray-300 hover:text-red-400 flex-shrink-0" title="Remove">
+                <button
+                  type="button"
+                  onClick={e => handleDelete(e, email)}
+                  className="ml-2 text-gray-300 hover:text-red-400 flex-shrink-0"
+                  title="Remove"
+                >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </li>
@@ -115,30 +174,48 @@ function Divider({ label }: { label: string }) {
   );
 }
 
+// ─── Error message ────────────────────────────────────────────────────────────
+function ErrorMessage({ message }: { message: string }) {
+  return (
+    <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100">{message}</p>
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AuthMode = 'sign-in' | 'sign-up';
 type SignUpStep = 'role' | 'details';
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main Login component ─────────────────────────────────────────────────────
 export default function Login() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect as soon as profile is loaded — avoids the need to call navigate()
-  // inside async handlers (which caused the "hanging sign-in" bug)
+  // Navigate as soon as AuthContext has a user — never call navigate() inside
+  // an async handler, because the profile may not be ready yet.
   useEffect(() => {
     if (user) navigate('/', { replace: true });
   }, [user, navigate]);
+
+  // Safety net: if AuthContext finishes loading (loading → false) but user is
+  // still null, it means auth succeeded but profile fetch failed silently.
+  // Reset submitting so the button unfreezes and show an error.
+  useEffect(() => {
+    if (!authLoading && !user && submitting) {
+      setSubmitting(false);
+      setError('Something went wrong loading your profile. Please try again.');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
   const [signUpStep, setSignUpStep] = useState<SignUpStep>('role');
   const [role, setRole] = useState<'customer' | 'vendor'>('customer');
 
-  // Form state
+  // Shared form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');   // name or business name
+  const [fullName, setFullName] = useState('');
   const [maxPoints, setMaxPoints] = useState(3);
 
   // UI state
@@ -147,11 +224,11 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setEmail(''); setPassword(''); setConfirmPassword('');
     setFullName(''); setMaxPoints(3); setRole('customer');
     setSignUpStep('role'); setError(null); setSubmitting(false);
-  };
+  }, []);
 
   const switchMode = (mode: AuthMode) => { resetForm(); setAuthMode(mode); };
 
@@ -185,9 +262,19 @@ export default function Login() {
       },
     });
 
-    if (signUpError) { setError(signUpError.message); setSubmitting(false); return; }
-    if (data.user) saveEmail(email);
-    // useEffect above will navigate once AuthContext sets the user
+    if (signUpError) {
+      setError(signUpError.message);
+      setSubmitting(false);
+      return;
+    }
+
+    if (data.user) {
+      saveEmail(email);
+      // submitting stays true — useEffect will navigate once AuthContext loads the user
+    } else {
+      setError('Signup failed. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
@@ -197,10 +284,15 @@ export default function Login() {
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (signInError) { setError(signInError.message); setSubmitting(false); return; }
+    if (signInError) {
+      setError(signInError.message);
+      setSubmitting(false);
+      return;
+    }
+
     saveEmail(email);
-    // useEffect above will navigate once AuthContext sets the user
-    // Don't call navigate() here — let AuthContext finish loading first
+    // submitting stays true — useEffect(authLoading, user) will handle any failure
+    // and useEffect(user) will navigate on success
   };
 
   const handleGoogleAuth = async () => {
@@ -219,26 +311,6 @@ export default function Login() {
     if (googleError) { setError(googleError.message); setSubmitting(false); }
   };
 
-  // ─── Password field ───────────────────────────────────────────────────────
-  const PasswordField = ({ id, label, value, onChange, show, onToggleShow, autocomplete }: {
-    id: string; label: string; value: string; onChange: (v: string) => void;
-    show: boolean; onToggleShow: () => void; autocomplete: string;
-  }) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="relative">
-        <input id={id} type={show ? 'text' : 'password'} autoComplete={autocomplete} required
-          value={value} onChange={e => onChange(e.target.value)}
-          className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 sm:text-sm pr-10"
-          placeholder="••••••••" />
-        <button type="button" onClick={onToggleShow}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-          {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-        </button>
-      </div>
-    </div>
-  );
-
   // ─── Sign-in form ─────────────────────────────────────────────────────────
   const renderSignIn = () => (
     <form className="space-y-5" onSubmit={handleEmailSignIn}>
@@ -247,9 +319,12 @@ export default function Login() {
         <ComboEmailInput id="signin-email" value={email} onChange={setEmail} placeholder="you@example.com" />
       </div>
 
-      <PasswordField id="signin-password" label="Password" value={password}
-        onChange={setPassword} show={showPassword} onToggleShow={() => setShowPassword(p => !p)}
-        autocomplete="current-password" />
+      <PasswordField
+        id="signin-password" label="Password"
+        value={password} onChange={setPassword}
+        show={showPassword} onToggleShow={() => setShowPassword(p => !p)}
+        autoComplete="current-password"
+      />
 
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -259,7 +334,7 @@ export default function Login() {
         <a href="#" className="text-sm font-medium text-orange-600 hover:text-orange-500">Forgot your password?</a>
       </div>
 
-      {error && <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
+      {error && <ErrorMessage message={error} />}
 
       <button type="submit" disabled={submitting}
         className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
@@ -269,7 +344,7 @@ export default function Login() {
       <Divider label="or" />
 
       <button type="button" onClick={handleGoogleAuth} disabled={submitting}
-        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 transition-colors disabled:opacity-60">
+        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
         <GoogleIcon />Sign in with Google
       </button>
     </form>
@@ -311,12 +386,18 @@ export default function Login() {
           className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 sm:text-sm"
           placeholder="you@example.com" />
       </div>
-      <PasswordField id="customer-pass" label="Password" value={password}
-        onChange={setPassword} show={showPassword} onToggleShow={() => setShowPassword(p => !p)} autocomplete="new-password" />
-      <PasswordField id="customer-confirm" label="Confirm Password" value={confirmPassword}
-        onChange={setConfirmPassword} show={showConfirm} onToggleShow={() => setShowConfirm(p => !p)} autocomplete="new-password" />
 
-      {error && <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
+      <PasswordField id="customer-pass" label="Password"
+        value={password} onChange={setPassword}
+        show={showPassword} onToggleShow={() => setShowPassword(p => !p)}
+        autoComplete="new-password" />
+
+      <PasswordField id="customer-confirm" label="Confirm Password"
+        value={confirmPassword} onChange={setConfirmPassword}
+        show={showConfirm} onToggleShow={() => setShowConfirm(p => !p)}
+        autoComplete="new-password" />
+
+      {error && <ErrorMessage message={error} />}
 
       <button type="submit" disabled={submitting}
         className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
@@ -326,7 +407,7 @@ export default function Login() {
       <Divider label="or" />
 
       <button type="button" onClick={handleGoogleAuth} disabled={submitting}
-        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 transition-colors disabled:opacity-60">
+        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
         <GoogleIcon />Sign up with Google
       </button>
     </form>
@@ -334,11 +415,9 @@ export default function Login() {
 
   // ─── Sign-up: vendor details ──────────────────────────────────────────────
   const renderVendorDetails = () => {
-    const googleEnabled = fullName.trim().length > 0;
-
+    const googleEnabled = fullName.trim().length > 0 && !submitting;
     return (
       <div className="space-y-5">
-        {/* Max points slider */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
             How many points must a customer accumulate to redeem a reward?
@@ -351,7 +430,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Business name */}
         <div>
           <label htmlFor="biz-name" className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
             Business name
@@ -367,36 +445,37 @@ export default function Login() {
             placeholder="e.g. Joe's Car Wash" />
         </div>
 
-        {/* Continue with Google */}
         <button type="button" onClick={handleGoogleAuth}
-          disabled={submitting || !googleEnabled}
-          className={`w-full flex items-center justify-center py-2.5 px-4 border rounded-xl text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400
+          disabled={!googleEnabled}
+          className={`w-full flex items-center justify-center py-2.5 px-4 border rounded-xl text-sm font-medium transition-all
             ${googleEnabled
-              ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+              ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
               : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'}`}>
           <GoogleIcon greyed={!googleEnabled} />
-          Continue with Google
+          {submitting ? 'Redirecting…' : 'Continue with Google'}
         </button>
 
         <Divider label="or sign up with email" />
 
-        {/* Email sign-up form for vendor */}
-        <form className="space-y-4" onSubmit={e => {
-          // fullName is already set from business name field above
-          handleEmailSignUp(e);
-        }}>
+        <form className="space-y-4" onSubmit={handleEmailSignUp}>
           <div>
             <label htmlFor="vendor-email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
             <input id="vendor-email" type="email" required value={email} onChange={e => setEmail(e.target.value)}
               className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 sm:text-sm"
               placeholder="you@example.com" />
           </div>
-          <PasswordField id="vendor-pass" label="Password" value={password}
-            onChange={setPassword} show={showPassword} onToggleShow={() => setShowPassword(p => !p)} autocomplete="new-password" />
-          <PasswordField id="vendor-confirm" label="Confirm Password" value={confirmPassword}
-            onChange={setConfirmPassword} show={showConfirm} onToggleShow={() => setShowConfirm(p => !p)} autocomplete="new-password" />
 
-          {error && <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
+          <PasswordField id="vendor-pass" label="Password"
+            value={password} onChange={setPassword}
+            show={showPassword} onToggleShow={() => setShowPassword(p => !p)}
+            autoComplete="new-password" />
+
+          <PasswordField id="vendor-confirm" label="Confirm Password"
+            value={confirmPassword} onChange={setConfirmPassword}
+            show={showConfirm} onToggleShow={() => setShowConfirm(p => !p)}
+            autoComplete="new-password" />
+
+          {error && <ErrorMessage message={error} />}
 
           <button type="submit" disabled={submitting || !fullName.trim()}
             className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
@@ -413,8 +492,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
-
-        {/* Header */}
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-gray-900">
             {isSignUp ? 'Create an account' : 'Welcome back'}
@@ -428,7 +505,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Back button + role chip when in sign-up details */}
         {isSignUp && signUpStep === 'details' && (
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => { setSignUpStep('role'); setError(null); }}
@@ -441,7 +517,6 @@ export default function Login() {
           </div>
         )}
 
-        {/* Body */}
         {!isSignUp && renderSignIn()}
         {isSignUp && signUpStep === 'role' && renderRoleSelector()}
         {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}

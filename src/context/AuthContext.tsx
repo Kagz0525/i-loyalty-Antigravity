@@ -34,9 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         // Always set loading true while we resolve the profile.
         // This prevents ProtectedRoute from redirecting to /login prematurely.
+        // It also ensures Login's safety-net useEffect can detect when loading
+        // finishes without a user (i.e. profile fetch failed).
         setLoading(true);
         const isNewUser = event === 'SIGNED_IN' || event === 'USER_UPDATED';
-        await fetchAndSyncProfile(session.user.id, session.user.email || '', isNewUser);
+        try {
+          await fetchAndSyncProfile(session.user.id, session.user.email || '', isNewUser);
+        } catch (err) {
+          console.error('Unhandled error in fetchAndSyncProfile:', err);
+          setUser(null);
+          setLoading(false);
+        }
       } else {
         setUser(null);
         setLoading(false);
