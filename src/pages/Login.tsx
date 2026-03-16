@@ -187,38 +187,18 @@ type SignUpStep = 'role' | 'details';
 
 // ─── Main Login component ─────────────────────────────────────────────────────
 export default function Login() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Navigate as soon as AuthContext has a user — never call navigate() inside
-  // an async handler, because the profile may not be ready yet.
-  useEffect(() => {
-    if (user) navigate('/', { replace: true });
-  }, [user, navigate]);
-
-  // Safety net: if AuthContext finishes loading (loading → false) but user is
-  // still null, it means auth succeeded but profile fetch failed silently.
-  // Reset submitting so the button unfreezes and show an error.
-  useEffect(() => {
-    if (!authLoading && !user && submitting) {
-      setSubmitting(false);
-      setError('Something went wrong loading your profile. Please try again.');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user]);
-
+  // ─── All state declared first before any useEffects ────────────────────────
   const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
   const [signUpStep, setSignUpStep] = useState<SignUpStep>('role');
   const [role, setRole] = useState<'customer' | 'vendor'>('customer');
-
-  // Shared form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [maxPoints, setMaxPoints] = useState(3);
-
-  // UI state
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +209,21 @@ export default function Login() {
     setFullName(''); setMaxPoints(3); setRole('customer');
     setSignUpStep('role'); setError(null); setSubmitting(false);
   }, []);
+
+  // Navigate as soon as AuthContext resolves the user
+  useEffect(() => {
+    if (user) navigate('/', { replace: true });
+  }, [user, navigate]);
+
+  // Safety net: if submitting for >15s with no navigation, unfreeze the button
+  useEffect(() => {
+    if (!submitting) return;
+    const timer = setTimeout(() => {
+      setSubmitting(false);
+      setError('Sign in is taking too long. Please check your connection and try again.');
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [submitting]);
 
   const switchMode = (mode: AuthMode) => { resetForm(); setAuthMode(mode); };
 
