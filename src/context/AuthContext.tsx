@@ -12,6 +12,7 @@ export interface User {
   businessName?: string;
   profilePic?: string;
   planType?: 'Starter' | 'Pro';
+  maxPoints?: number;
 }
 
 interface AuthContextType {
@@ -24,6 +25,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let fetchProfilePromise: Promise<void> | null = null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        fetchProfile(session.user.id, session.user.email || '');
+        executeFetchProfile(session.user.id, session.user.email || '');
       } else {
         setLoading(false);
       }
@@ -41,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchProfile(session.user.id, session.user.email || '');
+        executeFetchProfile(session.user.id, session.user.email || '');
       } else {
         setUser(null);
         setLoading(false);
@@ -51,17 +54,92 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const executeFetchProfile = async (userId: string, email: string) => {
+    if (fetchProfilePromise) {
+      await fetchProfilePromise;
+      return;
+    }
+    
+    fetchProfilePromise = fetchProfile(userId, email);
+    try {
+      await fetchProfilePromise;
+    } finally {
+      fetchProfilePromise = null;
+    }
+  };
+
   const fetchProfile = async (userId: string, email: string) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
+      const savedRole = localStorage.getItem('signup_role') as UserRole | null;
+      const savedBusinessName = localStorage.getItem('signup_businessName') || '';
+      const savedMaxPoints = parseInt(localStorage.getItem('signup_maxPoints') || '3', 10);
+
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist, let's create it
+        const roleToUse = savedRole || 'customer';
+        
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const metadataName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || '';
+
+        const newProfile = {
+          id: userId,
+          email,
+          role: roleToUse,
+          name: metadataName || savedBusinessName || email.split('@')[0],
+          business_name: roleToUse === 'vendor' ? savedBusinessName : null,
+          max_points: roleToUse === 'vendor' ? savedMaxPoints : null,
+        };
+
+        const { data: insertedData, error: insertError } = await supabase
+          .from('profiles')
+          .upsert([newProfile])
+          .select()
+          .single();
+
+        if (!insertError && insertedData) {
+          data = insertedData;
+        } else if (insertError) {
+          console.error('Error creating profile:', insertError);
+        }
+      } else if (data && savedRole) {
+        // Profile exists (likely created by a DB trigger), but we have signup data in localStorage
+        // We need to update the profile with the correct role and business name
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const metadataName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || '';
+        
+        const updateData = {
+          role: savedRole,
+          name: metadataName || savedBusinessName || email.split('@')[0],
+          business_name: savedRole === 'vendor' ? savedBusinessName : null,
+          max_points: savedRole === 'vendor' ? savedMaxPoints : null,
+        };
+
+        const { data: updatedData, error: updateError } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('id', userId)
+          .select()
+          .single();
+
+        if (!updateError && updatedData) {
+          data = updatedData;
+        } else if (updateError) {
+          console.error('Error updating profile from trigger:', updateError);
+        }
+      } else if (error) {
         console.error('Error fetching profile:', error);
       }
+
+      // Clear local storage after profile is fetched or created
+      localStorage.removeItem('signup_role');
+      localStorage.removeItem('signup_businessName');
+      localStorage.removeItem('signup_maxPoints');
 
       if (data) {
         setUser({
@@ -72,14 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: data.phone,
           businessName: data.business_name,
           planType: data.plan_type,
+          maxPoints: data.max_points,
         });
       } else {
-        // Fallback if profile doesn't exist yet
+        // Fallback if profile creation failed
         setUser({
           id: userId,
           name: '',
           email: email,
-          role: 'customer', // Default fallback
+          role: 'customer',
         });
       }
     } catch (err) {
@@ -91,18 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, role: UserRole) => {
     // The actual login is handled in Login.tsx via Supabase Auth.
-    // This is just to update the local state immediately or handle profile creation if needed.
+    // This is just to trigger a profile fetch manually if needed.
     const { data: { user: authUser } } = await supabase.auth.getUser();
     
     if (authUser) {
-      // Try to create profile if it doesn't exist
-      const { error } = await supabase.from('profiles').insert([
-        { id: authUser.id, email, role, name: email.split('@')[0] }
-      ]).select().single();
-      
-      if (!error) {
-        fetchProfile(authUser.id, email);
-      }
+      executeFetchProfile(authUser.id, email);
     }
   };
 
@@ -118,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: data.phone,
         business_name: data.businessName,
         plan_type: data.planType,
+        max_points: data.maxPoints,
       };
       
       const { error } = await supabase

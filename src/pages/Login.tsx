@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Store, UserCircle2, Eye, EyeOff } from 'lucide-react';
+import { Store, UserCircle2, Eye, EyeOff, Info } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const GoogleIcon = () => (
@@ -36,6 +36,7 @@ export default function Login() {
   const [maxPoints, setMaxPoints] = useState(3);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showGoogleVendorFields, setShowGoogleVendorFields] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -55,6 +56,15 @@ export default function Login() {
       setLoading(true);
 
       if (isSignUp) {
+        if (role === 'vendor') {
+          localStorage.setItem('signup_role', 'vendor');
+          localStorage.setItem('signup_businessName', fullName);
+          localStorage.setItem('signup_maxPoints', maxPoints.toString());
+        } else {
+          localStorage.setItem('signup_role', 'customer');
+          localStorage.setItem('signup_businessName', fullName); // For customer, fullName is used as name
+        }
+
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -96,13 +106,40 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
+    setError(null);
     let finalRole = role;
+    
     if (!isSignUp) {
       finalRole = 'customer'; // Mock default for Google sign in
+    } else if (role === 'vendor') {
+      if (!showGoogleVendorFields) {
+        setShowGoogleVendorFields(true);
+        return;
+      }
+      if (!fullName.trim()) {
+        setError("Please enter your Business name before continuing.");
+        return;
+      }
+      localStorage.setItem('signup_role', 'vendor');
+      localStorage.setItem('signup_businessName', fullName);
+      localStorage.setItem('signup_maxPoints', maxPoints.toString());
+    } else if (role === 'customer') {
+      localStorage.setItem('signup_role', 'customer');
     }
-    login('google@user.com', finalRole);
-    navigate('/');
+
+    setLoading(true);
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      }
+    });
+
+    if (googleError) {
+      setError(googleError.message);
+      setLoading(false);
+    }
   };
 
   const showForm = !isSignUp || hasSelectedRole;
@@ -120,6 +157,7 @@ export default function Login() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setHasSelectedRole(false);
+                setError(null);
               }}
               className="font-medium text-orange-600 hover:text-orange-500 focus:outline-none"
             >
@@ -128,7 +166,7 @@ export default function Login() {
           </p>
         </div>
 
-        {isSignUp && (
+        {isSignUp && !showGoogleVendorFields && (
           <div className="flex flex-col space-y-4 mb-6">
             {hasSelectedRole && (
               <div className="text-center mb-2">
@@ -142,6 +180,7 @@ export default function Login() {
               onClick={() => {
                 setRole('customer');
                 setHasSelectedRole(true);
+                setError(null);
               }}
               className={`flex items-start p-4 rounded-xl border-2 transition-all text-left ${
                 hasSelectedRole && role === 'customer'
@@ -160,6 +199,7 @@ export default function Login() {
               onClick={() => {
                 setRole('vendor');
                 setHasSelectedRole(true);
+                setError(null);
               }}
               className={`flex items-start p-4 rounded-xl border-2 transition-all text-left ${
                 hasSelectedRole && role === 'vendor'
@@ -176,12 +216,13 @@ export default function Login() {
           </div>
         )}
 
-        {showForm && (
+        {showForm && !showGoogleVendorFields && (
           <>
             <div className="space-y-4">
               <button
                 onClick={handleGoogleSignIn}
-                className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                disabled={loading}
+                className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-50"
               >
                 <GoogleIcon />
                 Sign {isSignUp ? 'up' : 'in'} with Google
@@ -220,8 +261,36 @@ export default function Login() {
                     </div>
                   )}
                   <div>
-                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                      {role === 'vendor' ? 'Business name / Full name' : 'Full name'}
+                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                      {role === 'vendor' ? (
+                        <>
+                          Business name
+                          <div className="relative ml-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const tooltip = e.currentTarget.nextElementSibling;
+                                if (tooltip) {
+                                  tooltip.classList.toggle('hidden');
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const tooltip = e.currentTarget.nextElementSibling;
+                                if (tooltip) {
+                                  tooltip.classList.add('hidden');
+                                }
+                              }}
+                              className="focus:outline-none"
+                            >
+                              <Info className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+                            </button>
+                            <div className="hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                              If your business doesn't have a name use your full name
+                            </div>
+                          </div>
+                        </>
+                      ) : 'Full name'}
                     </label>
                     <input
                       id="fullName"
@@ -353,6 +422,91 @@ export default function Login() {
               </div>
             </form>
           </>
+        )}
+
+        {showGoogleVendorFields && (
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label htmlFor="googleMaxPoints" className="block text-sm font-medium text-gray-700">
+                How many points must a customer accumulate to redeem a reward?
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  id="googleMaxPoints"
+                  min="3"
+                  max="10"
+                  value={maxPoints}
+                  onChange={(e) => setMaxPoints(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                />
+                <span className="font-bold text-orange-600 w-8 text-center text-lg">{maxPoints}</span>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="googleFullName" className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                Business name
+                <div className="relative ml-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const tooltip = e.currentTarget.nextElementSibling;
+                      if (tooltip) {
+                        tooltip.classList.toggle('hidden');
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const tooltip = e.currentTarget.nextElementSibling;
+                      if (tooltip) {
+                        tooltip.classList.add('hidden');
+                      }
+                    }}
+                    className="focus:outline-none"
+                  >
+                    <Info className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+                  </button>
+                  <div className="hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                    If your business doesn't have a name use your full name
+                  </div>
+                </div>
+              </label>
+              <input
+                id="googleFullName"
+                name="googleFullName"
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="appearance-none block w-full px-3 py-2.5 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                placeholder="e.g. Joe's Car Wash"
+              />
+            </div>
+            
+            {error && (
+              <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-100">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading || !fullName.trim()}
+              className="w-full flex items-center justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-50"
+            >
+              <GoogleIcon />
+              Continue with Google
+            </button>
+            <button
+              onClick={() => {
+                setShowGoogleVendorFields(false);
+                setError(null);
+              }}
+              className="w-full text-sm text-gray-500 hover:text-gray-700 text-center mt-4"
+            >
+              Back
+            </button>
+          </div>
         )}
       </div>
     </div>

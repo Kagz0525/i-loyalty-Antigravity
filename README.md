@@ -1,20 +1,25 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# i-loyalty
 
-# Run and deploy your AI Studio app
+A digital loyalty card system built with React, Vite, Tailwind CSS, and Supabase.
 
-This contains everything you need to run your app locally.
+## Developer Guide
 
-View your app in AI Studio: https://ai.studio/apps/2672e897-0970-4597-8b61-80b72187a43d
+If you are a developer or an AI agent (like Google Antigravity) picking up this project, please read the [ARCHITECTURE.md](./ARCHITECTURE.md) file first. It contains a comprehensive overview of the application's purpose, tech stack, database schema, and key architectural decisions (including the complex Google OAuth sign-up flow).
 
-## Run Locally
+## Getting Started
 
-**Prerequisites:**  Node.js
+1.  Install dependencies:
+    ```bash
+    npm install
+    ```
+2.  Set up your `.env` file with your Supabase credentials (see `.env.example`).
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Features
+*   **Vendors:** Manage customers, assign loyalty points, and redeem rewards.
+*   **Customers:** View accumulated loyalty points across different vendors.
+*   **Authentication:** Email/Password and Google OAuth via Supabase.
+*   **Responsive Design:** Mobile-first UI using Tailwind CSS.

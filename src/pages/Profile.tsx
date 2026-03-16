@@ -17,8 +17,8 @@ export default function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 1 Settings
-  const [maxPoints, setMaxPoints] = useState(5);
-  const [tempMaxPoints, setTempMaxPoints] = useState(5);
+  const [maxPoints, setMaxPoints] = useState(user?.maxPoints || 5);
+  const [tempMaxPoints, setTempMaxPoints] = useState(user?.maxPoints || 5);
 
   // Step 2 Settings
   const [minSpend, setMinSpend] = useState(0);
@@ -468,6 +468,7 @@ export default function Profile() {
                     <button
                       onClick={() => {
                         setMaxPoints(tempMaxPoints);
+                        updateUser({ maxPoints: tempMaxPoints });
                         if (isDirectEdit) {
                           setIsSetupModalOpen(false);
                           setIsDirectEdit(false);
@@ -759,6 +760,7 @@ export default function Profile() {
                         setExpirationDate(tempExpirationDate); 
                         setIsWizardMode(false); 
                         setModalView('main'); 
+                        updateUser({ maxPoints: tempMaxPoints });
                       }
                     }}
                     className="flex-1 py-3 px-4 bg-orange-600 text-white rounded-xl font-medium hover:bg-orange-700 transition-colors shadow-sm"

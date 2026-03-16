@@ -73,7 +73,7 @@ export default function VendorDashboard() {
       joinedDate: new Date().toISOString().split('T')[0],
     };
 
-    addCustomer(newCustomer, user!.id, 5); // Default max points 5
+    addCustomer(newCustomer, user!.id, user?.maxPoints || 5);
     setIsAddModalOpen(false);
     setNewCustomerName('');
     setNewCustomerEmail('');
