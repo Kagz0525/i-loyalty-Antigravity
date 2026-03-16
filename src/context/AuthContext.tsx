@@ -25,26 +25,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let fetchProfilePromise: Promise<void> | null = null;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Listen for auth state changes – this fires on page load (INITIAL_SESSION)
+    // as well as on sign-in / sign-out / token refresh.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        executeFetchProfile(session.user.id, session.user.email || '');
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        executeFetchProfile(session.user.id, session.user.email || '');
+        const isNewUser = event === 'SIGNED_IN' || event === 'USER_UPDATED';
+        await fetchAndSyncProfile(session.user.id, session.user.email || '', isNewUser);
       } else {
         setUser(null);
         setLoading(false);
@@ -54,128 +45,154 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const executeFetchProfile = async (userId: string, email: string) => {
-    if (fetchProfilePromise) {
-      await fetchProfilePromise;
-      return;
-    }
-    
-    fetchProfilePromise = fetchProfile(userId, email);
+  /**
+   * Fetches the profile from Supabase. If none exists, creates it using:
+   *   1. Supabase Auth user_metadata (set during signUp or Google OAuth)
+   *   2. localStorage fallback (for Google vendor pre-auth data)
+   *
+   * If a profile already exists but was just created (isNewUser), we still
+   * update it with localStorage data so that DB triggers don't win.
+   */
+  const fetchAndSyncProfile = async (userId: string, email: string, isNewUser: boolean) => {
     try {
-      await fetchProfilePromise;
-    } finally {
-      fetchProfilePromise = null;
-    }
-  };
+      // Pull pre-auth data from localStorage (set before OAuth redirect)
+      const savedRole = localStorage.getItem('signup_role') as UserRole | null;
+      const savedName = localStorage.getItem('signup_name') || '';
+      const savedBusinessName = localStorage.getItem('signup_businessName') || '';
+      const savedMaxPoints = parseInt(localStorage.getItem('signup_maxPoints') || '3', 10);
+      const hasLocalStorageData = !!savedRole;
 
-  const fetchProfile = async (userId: string, email: string) => {
-    try {
-      let { data, error } = await supabase
+      // Get Supabase Auth metadata (works for both email & Google sign-ups)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const meta = authUser?.user_metadata || {};
+
+      // Resolve values with priority: localStorage > auth metadata > fallbacks
+      const resolvedRole: UserRole = savedRole || (meta.role as UserRole) || 'customer';
+      const googleName = meta.full_name || meta.name || '';
+
+      // For name: customers use their google name or the name they typed
+      // For vendors: use savedBusinessName (they typed it pre-auth)
+      let resolvedName = '';
+      let resolvedBusinessName: string | null = null;
+      let resolvedMaxPoints: number | null = null;
+
+      if (resolvedRole === 'vendor') {
+        // Business name comes from localStorage or metadata
+        resolvedBusinessName = savedBusinessName || meta.business_name || googleName || email.split('@')[0];
+        // Vendor's "name" is their business name
+        resolvedName = savedName || resolvedBusinessName;
+        resolvedMaxPoints = savedMaxPoints || parseInt(meta.max_points || '3', 10);
+      } else {
+        // Customer name: metadata from Google, or the name they typed (in metadata.name via signUp)
+        resolvedName = savedName || googleName || meta.full_name || email.split('@')[0];
+      }
+
+      // Fetch existing profile
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const savedRole = localStorage.getItem('signup_role') as UserRole | null;
-      const savedBusinessName = localStorage.getItem('signup_businessName') || '';
-      const savedMaxPoints = parseInt(localStorage.getItem('signup_maxPoints') || '3', 10);
+      let profileData: any = null;
 
-      if (error && error.code === 'PGRST116') {
-        // Profile doesn't exist, let's create it
-        const roleToUse = savedRole || 'customer';
-        
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const metadataName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || '';
-
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // No profile exists – create one
         const newProfile = {
           id: userId,
           email,
-          role: roleToUse,
-          name: metadataName || savedBusinessName || email.split('@')[0],
-          business_name: roleToUse === 'vendor' ? savedBusinessName : null,
-          max_points: roleToUse === 'vendor' ? savedMaxPoints : null,
+          role: resolvedRole,
+          name: resolvedName,
+          business_name: resolvedRole === 'vendor' ? resolvedBusinessName : null,
+          max_points: resolvedRole === 'vendor' ? resolvedMaxPoints : null,
         };
 
-        const { data: insertedData, error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from('profiles')
           .upsert([newProfile])
           .select()
           .single();
 
-        if (!insertError && insertedData) {
-          data = insertedData;
-        } else if (insertError) {
+        if (insertError) {
           console.error('Error creating profile:', insertError);
+        } else {
+          profileData = inserted;
         }
-      } else if (data && savedRole) {
-        // Profile exists (likely created by a DB trigger), but we have signup data in localStorage
-        // We need to update the profile with the correct role and business name
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        const metadataName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || '';
-        
-        const updateData = {
-          role: savedRole,
-          name: metadataName || savedBusinessName || email.split('@')[0],
-          business_name: savedRole === 'vendor' ? savedBusinessName : null,
-          max_points: savedRole === 'vendor' ? savedMaxPoints : null,
-        };
+      } else if (existingProfile) {
+        profileData = existingProfile;
 
-        const { data: updatedData, error: updateError } = await supabase
-          .from('profiles')
-          .update(updateData)
-          .eq('id', userId)
-          .select()
-          .single();
+        // If we have fresh signup data in localStorage, always update the profile
+        // This handles the case where a DB trigger pre-created the profile
+        if (hasLocalStorageData || isNewUser) {
+          const updatePayload: any = {
+            role: resolvedRole,
+          };
 
-        if (!updateError && updatedData) {
-          data = updatedData;
-        } else if (updateError) {
-          console.error('Error updating profile from trigger:', updateError);
+          // Only override name/business if we have real data
+          if (resolvedName) updatePayload.name = resolvedName;
+          if (resolvedRole === 'vendor') {
+            if (resolvedBusinessName) updatePayload.business_name = resolvedBusinessName;
+            if (resolvedMaxPoints) updatePayload.max_points = resolvedMaxPoints;
+          }
+
+          const { data: updated, error: updateError } = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', userId)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('Error updating profile on sign-up sync:', updateError);
+          } else if (updated) {
+            profileData = updated;
+          }
         }
-      } else if (error) {
-        console.error('Error fetching profile:', error);
+      } else if (fetchError) {
+        console.error('Error fetching profile:', fetchError);
       }
 
-      // Clear local storage after profile is fetched or created
-      localStorage.removeItem('signup_role');
-      localStorage.removeItem('signup_businessName');
-      localStorage.removeItem('signup_maxPoints');
+      // Clear localStorage after we've used the data
+      if (hasLocalStorageData) {
+        localStorage.removeItem('signup_role');
+        localStorage.removeItem('signup_name');
+        localStorage.removeItem('signup_businessName');
+        localStorage.removeItem('signup_maxPoints');
+      }
 
-      if (data) {
+      if (profileData) {
         setUser({
-          id: data.id,
-          name: data.name || '',
-          email: data.email || email,
-          role: data.role,
-          phone: data.phone,
-          businessName: data.business_name,
-          planType: data.plan_type,
-          maxPoints: data.max_points,
+          id: profileData.id,
+          name: profileData.name || resolvedName,
+          email: profileData.email || email,
+          role: profileData.role as UserRole,
+          phone: profileData.phone,
+          businessName: profileData.business_name || undefined,
+          planType: profileData.plan_type,
+          maxPoints: profileData.max_points ?? undefined,
         });
       } else {
-        // Fallback if profile creation failed
+        // Last resort fallback
         setUser({
           id: userId,
-          name: '',
-          email: email,
-          role: 'customer',
+          name: resolvedName,
+          email,
+          role: resolvedRole,
+          businessName: resolvedBusinessName || undefined,
+          maxPoints: resolvedMaxPoints || undefined,
         });
       }
     } catch (err) {
-      console.error('Error in fetchProfile:', err);
+      console.error('Error in fetchAndSyncProfile:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, role: UserRole) => {
-    // The actual login is handled in Login.tsx via Supabase Auth.
-    // This is just to trigger a profile fetch manually if needed.
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    
-    if (authUser) {
-      executeFetchProfile(authUser.id, email);
-    }
+  // login() is called after email sign-in. The onAuthStateChange listener
+  // will handle the profile fetch automatically, so this is a no-op now.
+  const login = (_email: string, _role: UserRole) => {
+    // Auth state change listener handles everything
   };
 
   const logout = async () => {
@@ -185,19 +202,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (data: Partial<User>) => {
     if (user) {
-      const updates = {
-        name: data.name,
-        phone: data.phone,
-        business_name: data.businessName,
-        plan_type: data.planType,
-        max_points: data.maxPoints,
-      };
-      
+      const updates: any = {};
+      if (data.name !== undefined) updates.name = data.name;
+      if (data.phone !== undefined) updates.phone = data.phone;
+      if (data.businessName !== undefined) updates.business_name = data.businessName;
+      if (data.planType !== undefined) updates.plan_type = data.planType;
+      if (data.maxPoints !== undefined) updates.max_points = data.maxPoints;
+
       const { error } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user.id);
-        
+
       if (!error) {
         setUser({ ...user, ...data });
       } else {

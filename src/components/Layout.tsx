@@ -32,18 +32,19 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             {user?.role === 'vendor' && (
               <button
-                onClick={() => {}}
+                onClick={() => { }}
                 className="w-10 h-10 bg-white text-orange-600 rounded-full shadow-sm border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
                 title="Scan QR Code"
               >
                 <QrCode className="w-5 h-5" />
               </button>
             )}
-            <h1 
+            <h1
               onClick={() => navigate('/profile')}
               className="text-sm font-semibold text-orange-600 tracking-tight cursor-pointer hover:text-orange-800 transition-colors"
             >
-              Welcome, {user?.name || user?.businessName || 'Guest'}
+              Welcome, {user?.role === 'vendor' ? (user?.businessName || user?.name || 'Guest') : (user?.name || 'Guest')}
+              {user?.role === 'vendor' && user?.maxPoints ? ` (Max Points: ${user.maxPoints})` : ''}
             </h1>
           </div>
           <button
@@ -71,7 +72,7 @@ export default function Layout() {
               onClick={() => setIsSidebarOpen(false)}
               className="fixed inset-0 bg-black/30 z-30"
             />
-            
+
             {/* Sidebar */}
             <motion.div
               initial={{ x: '100%' }}
@@ -83,18 +84,17 @@ export default function Layout() {
               <div className="p-6 border-b border-gray-100 flex justify-between items-start">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    {user?.businessName || user?.name}
+                    {user?.role === 'vendor' ? (user?.businessName || user?.name || 'Guest') : (user?.name || 'Guest')}
                   </h2>
                   <p className="text-sm text-gray-500">{user?.email}</p>
                   <div className="flex items-center gap-2 mt-2">
                     {user?.role === 'vendor' ? (
-                      <span 
+                      <span
                         onClick={() => setIsPlanModalOpen(true)}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                          user?.planType === 'Pro' 
-                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200' 
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${user?.planType === 'Pro'
+                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                             : 'bg-green-100 text-green-800 hover:bg-green-200'
-                        }`}
+                          }`}
                       >
                         {user?.planType || 'Starter'} Plan
                       </span>
@@ -122,23 +122,21 @@ export default function Layout() {
                         key={item.name}
                         to={item.path}
                         onClick={() => setIsSidebarOpen(false)}
-                        className={`group flex items-center px-2 py-2 text-base font-medium rounded-md ${
-                          isActive
+                        className={`group flex items-center px-2 py-2 text-base font-medium rounded-md ${isActive
                             ? 'bg-orange-50 text-orange-600'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        }`}
+                          }`}
                       >
                         <item.icon
-                          className={`mr-4 flex-shrink-0 h-6 w-6 ${
-                            isActive ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-500'
-                          }`}
+                          className={`mr-4 flex-shrink-0 h-6 w-6 ${isActive ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-500'
+                            }`}
                           aria-hidden="true"
                         />
                         {item.name}
                       </Link>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => {
                       setIsSidebarOpen(false);
@@ -171,9 +169,9 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <PlanModal 
-        isOpen={isPlanModalOpen} 
-        onClose={() => setIsPlanModalOpen(false)} 
+      <PlanModal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
       />
     </div>
   );
