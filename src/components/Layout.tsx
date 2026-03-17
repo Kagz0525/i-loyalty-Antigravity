@@ -1,16 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode } from 'lucide-react';
+import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import PlanModal from './PlanModal';
+import { supabase } from '../supabaseClient';
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user?.email) return;
+      const { data } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('email', user.email.toLowerCase())
+        .maybeSingle();
+      setIsAdmin(!!data);
+    };
+    checkAdmin();
+  }, [user?.email]);
 
   const handleLogout = () => {
     logout();
@@ -156,6 +171,16 @@ export default function Layout() {
               </div>
 
               <div className="p-4 border-t border-gray-100">
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`w-full group flex items-center px-2 py-2 mb-1 text-base font-medium rounded-md ${location.pathname === '/admin' ? 'bg-indigo-50 text-indigo-600' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                  >
+                    <ShieldCheck className={`mr-4 flex-shrink-0 h-6 w-6 ${location.pathname === '/admin' ? 'text-indigo-600' : 'text-indigo-400 group-hover:text-indigo-500'}`} />
+                    Admin Section
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="w-full group flex items-center px-2 py-2 text-base font-medium rounded-md text-red-600 hover:bg-red-50"

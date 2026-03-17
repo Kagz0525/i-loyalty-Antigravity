@@ -13,6 +13,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import About from './pages/About';
 import Chat from './pages/Chat';
+import AdminSection from './pages/AdminSection';
 
 // Full-screen loading spinner shown while the auth session is being resolved
 function LoadingScreen() {
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="about" element={<About />} />
               <Route path="chat" element={<Chat />} />
+              <Route path="admin" element={<AdminSection />} />
             </Route>
           </Routes>
         </Router>
