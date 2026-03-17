@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { UserCircle2, Save, Edit2, Camera, X, ArrowLeft, Calendar, Star, CreditCard, Gift, Handshake, Lock, Phone, Zap, Trash2, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PlanModal from '../components/PlanModal';
+import { supabase } from '../supabaseClient';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -12,6 +13,7 @@ export default function Profile() {
   
   const [editingField, setEditingField] = useState<string | null>(null);
   const [profilePic, setProfilePic] = useState<string | null>(user?.profilePic || null);
+  const [isUploading, setIsUploading] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [modalView, setModalView] = useState<'main' | 'step1' | 'step2' | 'step3' | 'step4'>('main');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,14 +71,49 @@ export default function Profile() {
     setEditingField(null);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePic(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file || !user) return;
+    
+    // Check file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      return;
+    }
+
+    setIsUploading(true);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `profile_pics/${user.id}-${Math.random()}.${fileExt}`;
+
+      // Upload the file to "Send_My_Task_Assets" private bucket
+      const { error: uploadError } = await supabase.storage
+        .from('Send_My_Task_Assets')
+        .upload(fileName, file, { 
+          cacheControl: '3600',
+          upsert: true 
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Generate a signed URL valid for 10 years because the bucket is private
+      const { data: urlData, error: urlError } = await supabase.storage
+        .from('Send_My_Task_Assets')
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365 * 10);
+
+      if (urlError) {
+        throw urlError;
+      }
+
+      setProfilePic(urlData.signedUrl);
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      alert('Error uploading image: ' + error.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -138,7 +175,12 @@ export default function Profile() {
               ) : (
                 <UserCircle2 className="w-24 h-24 text-gray-400" />
               )}
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity m-1">
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center m-1">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              <div className={`absolute inset-0 bg-black/40 rounded-full flex items-center justify-center transition-opacity m-1 ${isUploading ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
                 <Camera className="w-8 h-8 text-white" />
               </div>
               <input 
@@ -170,7 +212,7 @@ export default function Profile() {
           </div>
 
           <div className="bg-gray-50 rounded-xl px-6 py-4 border border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {renderField('Full Name', name, 'name', setName)}
+            {user?.role === 'customer' && renderField('Full Name', name, 'name', setName)}
             {renderField('Email', email, 'email', setEmail)}
             {user?.role === 'vendor' && renderField('Business Name', businessName, 'businessName', setBusinessName)}
           </div>
