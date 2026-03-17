@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         await withTimeout(
-          fetchAndSyncProfile(session.user.id, session.user.email || '', isNewUser, setUser),
+          fetchAndSyncProfile(session.user, isNewUser, setUser),
           12000, // 12 second hard timeout
           `Profile load timed out for ${session.user.email}`
         );
@@ -152,11 +152,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
  * Priority for name/role: localStorage (pre-OAuth) → auth metadata → fallback
  */
 async function fetchAndSyncProfile(
-  userId: string,
-  email: string,
+  sessionUser: any,
   isNewUser: boolean,
   setUser: (u: User) => void
 ): Promise<void> {
+  const userId = sessionUser.id;
+  const email = sessionUser.email || '';
+  
   // 1. Read pre-auth localStorage data (set before Google OAuth redirect)
   const savedRole = localStorage.getItem('signup_role') as UserRole | null;
   const savedName = localStorage.getItem('signup_name') || '';
@@ -164,9 +166,8 @@ async function fetchAndSyncProfile(
   const savedMaxPoints = parseInt(localStorage.getItem('signup_maxPoints') || '3', 10);
   const hasLocalData = !!savedRole;
 
-  // 2. Read auth metadata (set during signUp() or from Google)
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  const meta = authUser?.user_metadata || {};
+  // 2. Read auth metadata from session (avoids lock stealing from calling auth.getUser)
+  const meta = sessionUser?.user_metadata || {};
 
   // 3. Resolve final values
   const resolvedRole: UserRole = savedRole || (meta.role as UserRole) || 'customer';

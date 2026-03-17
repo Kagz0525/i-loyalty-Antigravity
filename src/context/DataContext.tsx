@@ -99,7 +99,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } else {
       // Customer: fetch records both by their auth UUID and by any legacy customers row
       // that was created with their email before they signed up.
-      recordsQuery = recordsQuery.eq('customer_id', user.id);
+      
+      // First, get any legacy IDs from the customers table that match their email
+      const { data: legacyIds } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', user.email);
+
+      const allCustomerIds = [user.id];
+      if (legacyIds) {
+        legacyIds.forEach(row => allCustomerIds.push(row.id));
+      }
+
+      recordsQuery = recordsQuery.in('customer_id', allCustomerIds);
     }
 
     const { data: recordsData } = await recordsQuery;
