@@ -324,7 +324,9 @@ export default function Profile() {
                       <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
                         <Phone className="w-4 h-4" />
                       </div>
-                      <span className="text-sm font-medium text-gray-700">Cell Phone Number</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Cell Phone Number{user?.phone ? `: ${user?.phone}` : ''}
+                      </span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
@@ -869,12 +871,17 @@ export default function Profile() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  // Dummy save logic
-                  setIsPasswordModalOpen(false);
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
+                onClick={async () => {
+                  const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  if (error) {
+                    alert('Error updating password: ' + error.message);
+                  } else {
+                    alert('Password updated successfully!');
+                    setIsPasswordModalOpen(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }
                 }}
                 disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
                 className="w-full py-3 px-4 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -915,7 +922,17 @@ export default function Profile() {
                 <input
                   type="tel"
                   value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    let formatted = val;
+                    if (val.length > 3 && val.length <= 6) {
+                      formatted = `${val.slice(0, 3)} ${val.slice(3)}`;
+                    } else if (val.length > 6) {
+                      formatted = `${val.slice(0, 3)} ${val.slice(3, 6)} ${val.slice(6, 10)}`;
+                    }
+                    setPhoneInput(formatted);
+                  }}
+                  maxLength={12}
                   className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
@@ -983,9 +1000,14 @@ export default function Profile() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (deleteEmailInput === user?.email) {
-                      logout();
+                      const { error } = await supabase.rpc('delete_user');
+                      if (error) {
+                        alert('Error deleting account: ' + error.message);
+                      } else {
+                        logout();
+                      }
                     }
                   }}
                   disabled={deleteEmailInput !== user?.email}
