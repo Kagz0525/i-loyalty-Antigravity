@@ -50,6 +50,7 @@ export default function AdminSection() {
   const [auditResults, setAuditResults] = useState<AuditEntry[]>([]);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditLoading, setAuditLoading] = useState(false);
+  const [auditLimit, setAuditLimit] = useState(10);
 
   // Section collapse state
   const [adminOpen, setAdminOpen] = useState(true);
@@ -149,13 +150,17 @@ export default function AdminSection() {
   };
 
   // --- Audit Trail ---
-  const searchAudit = async () => {
+  const searchAudit = async (loadMore = false) => {
     setAuditLoading(true);
+    const newLimit = loadMore ? auditLimit + 10 : 10;
+    if (!loadMore) setAuditLimit(10);
+    else setAuditLimit(newLimit);
+
     let query = supabase
       .from('audit_trail')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(newLimit);
 
     if (auditSearch.trim()) {
       const term = auditSearch.trim().toLowerCase();
@@ -169,7 +174,7 @@ export default function AdminSection() {
       setAuditResults(data);
     } else {
       console.error("Audit trail search error:", error);
-      setAuditResults([]);
+      setAuditResults(loadMore ? auditResults : []);
     }
     setAuditLoading(false);
   };
@@ -179,18 +184,18 @@ export default function AdminSection() {
 
   const eventTypeColors: Record<string, string> = {
     account_created: 'bg-green-100 text-green-700',
-    account_deleted: 'bg-red-100 text-red-700',
-    max_points_adjusted: 'bg-blue-100 text-blue-700',
-    max_points_reached: 'bg-purple-100 text-purple-700',
-    reward_redeemed: 'bg-amber-100 text-amber-700',
+    point_allocated: 'bg-blue-100 text-blue-700',
+    points_reset: 'bg-amber-100 text-amber-700',
+    reward_points_adjustment: 'bg-purple-100 text-purple-700',
+    relationship_removed: 'bg-red-100 text-red-700',
   };
 
   const eventTypeLabels: Record<string, string> = {
     account_created: 'Account Created',
-    account_deleted: 'Account Deleted',
-    max_points_adjusted: 'Max Points Adjusted',
-    max_points_reached: 'Max Points Reached',
-    reward_redeemed: 'Reward Redeemed',
+    point_allocated: 'Point Allocated',
+    points_reset: 'Points Reset',
+    reward_points_adjustment: 'Reward Points Adjustment',
+    relationship_removed: 'Removed Vendor / Customer',
   };
 
   return (
@@ -460,20 +465,14 @@ export default function AdminSection() {
                               </span>
                             </div>
                             <div className="text-sm text-gray-700 space-y-0.5">
-                              {entry.actor_email && (
-                                <p><span className="text-gray-400 text-xs">Actor:</span> <span className="font-medium">{entry.actor_email}</span></p>
-                              )}
                               {entry.vendor_email && (
-                                <p><span className="text-gray-400 text-xs">Vendor:</span> <span className="font-medium">{entry.vendor_email}</span></p>
+                                <p><span className="text-gray-400 text-xs text-uppercase">Vendor:</span> <span className="font-medium">{entry.vendor_email}</span></p>
                               )}
                               {entry.customer_email && (
                                 <p><span className="text-gray-400 text-xs">Customer:</span> <span className="font-medium">{entry.customer_email}</span></p>
                               )}
-                              {entry.target_email && (
-                                <p><span className="text-gray-400 text-xs">Target:</span> <span className="font-medium">{entry.target_email}</span></p>
-                              )}
                               {entry.details && (
-                                <p className="text-xs text-gray-500 mt-1 italic">{entry.details}</p>
+                                <p className="text-xs text-gray-800 mt-2 font-medium">{entry.details}</p>
                               )}
                             </div>
                           </div>
@@ -489,6 +488,18 @@ export default function AdminSection() {
                         </div>
                       </div>
                     ))}
+                    
+                    {auditResults.length >= auditLimit && (
+                      <div className="text-center pt-2 pb-4">
+                        <button
+                          onClick={() => searchAudit(true)}
+                          disabled={auditLoading}
+                          className="px-4 py-2 text-sm text-emerald-600 font-medium hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-200"
+                        >
+                          {auditLoading ? 'Loading...' : 'Load More'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
