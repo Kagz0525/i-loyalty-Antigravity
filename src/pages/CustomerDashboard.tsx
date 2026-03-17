@@ -12,8 +12,9 @@ export default function CustomerDashboard() {
   const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [selectedVendorRecord, setSelectedVendorRecord] = useState<{ record: any; vendor: any } | null>(null);
 
-  // Filter records for this customer
-  const customerRecords = loyaltyRecords.filter((r) => r.customerId === user?.id);
+  // DataContext already scopes loyaltyRecords to this user (by auth UUID + legacy email IDs)
+  // so we use them directly — no additional filtering needed.
+  const customerRecords = user?.role === 'customer' ? loyaltyRecords : [];
 
   // Join records with vendor data
   const vendorCards = customerRecords.map((record) => {

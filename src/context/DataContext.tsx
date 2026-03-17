@@ -213,11 +213,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
    */
   const addCustomer = async (customer: Customer, vendorId: string, maxPoints: number) => {
     // Step 1: Look up whether this email already has a profile (registered user)
+    // Uses an RPC function that has SECURITY DEFINER to bypass RLS,
+    // so the vendor can find the customer's real auth UUID.
     const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id, name, email, phone')
-      .eq('email', customer.email.toLowerCase().trim())
-      .single();
+      .rpc('lookup_profile_by_email', { lookup_email: customer.email.toLowerCase().trim() })
+      .single() as { data: { id: string; name: string; email: string; phone: string } | null };
 
     let customerId: string;
     let resolvedCustomer: Customer;
