@@ -40,6 +40,12 @@ export default function AdminSection() {
   const [newTesterEmail, setNewTesterEmail] = useState('');
   const [testerLoading, setTesterLoading] = useState(false);
 
+  // Search local state
+  const [showAdminSearch, setShowAdminSearch] = useState(false);
+  const [adminSearchTerm, setAdminSearchTerm] = useState('');
+  const [showTesterSearch, setShowTesterSearch] = useState(false);
+  const [testerSearchTerm, setTesterSearchTerm] = useState('');
+
   // Audit Trail
   const [auditResults, setAuditResults] = useState<AuditEntry[]>([]);
   const [auditSearch, setAuditSearch] = useState('');
@@ -84,6 +90,7 @@ export default function AdminSection() {
       alert('Cannot remove the default admin.');
       return;
     }
+    if (!window.confirm(`Are you sure you want to remove ${email} from Admin Users?`)) return;
     const { error } = await supabase.from('admin_users').delete().eq('id', id);
     if (!error) fetchAdminUsers();
   };
@@ -129,6 +136,8 @@ export default function AdminSection() {
   };
 
   const removeProTester = async (id: string, email: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${email} from Pro Testers?`)) return;
+
     // Downgrade back to Starter
     await supabase
       .from('profiles')
@@ -156,10 +165,17 @@ export default function AdminSection() {
     }
 
     const { data, error } = await query;
-    if (!error && data) setAuditResults(data);
-    else setAuditResults([]);
+    if (!error && data) {
+      setAuditResults(data);
+    } else {
+      console.error("Audit trail search error:", error);
+      setAuditResults([]);
+    }
     setAuditLoading(false);
   };
+
+  const filteredAdmins = adminUsers.filter(a => a.email.includes(adminSearchTerm.toLowerCase()));
+  const filteredTesters = proTesters.filter(t => t.email.includes(testerSearchTerm.toLowerCase()));
 
   const eventTypeColors: Record<string, string> = {
     account_created: 'bg-green-100 text-green-700',
@@ -216,9 +232,25 @@ export default function AdminSection() {
               className="overflow-hidden"
             >
               <div className="px-6 pb-6 border-t border-gray-100 pt-4">
-                <p className="text-sm text-gray-500 mb-4">
-                  Users added here will see the "Admin Section" button in their sidebar.
-                </p>
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm text-gray-500">
+                    Users added here will see the "Admin Section" button in their sidebar.
+                  </p>
+                  <button onClick={() => setShowAdminSearch(!showAdminSearch)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                    <Search className="w-4 h-4" />
+                  </button>
+                </div>
+                {showAdminSearch && (
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      value={adminSearchTerm}
+                      onChange={(e) => setAdminSearchTerm(e.target.value)}
+                      placeholder="Search admins..."
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
                 <div className="flex gap-2 mb-4">
                   <input
                     type="email"
@@ -237,11 +269,11 @@ export default function AdminSection() {
                   </button>
                 </div>
 
-                {adminUsers.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">No admin users yet.</p>
+                {filteredAdmins.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">No admin users found.</p>
                 ) : (
-                  <div className="space-y-2">
-                    {adminUsers.map((a) => (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {filteredAdmins.map((a) => (
                       <div key={a.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
                         <div>
                           <p className="text-sm font-medium text-gray-800">{a.email}</p>
@@ -294,9 +326,25 @@ export default function AdminSection() {
               className="overflow-hidden"
             >
               <div className="px-6 pb-6 border-t border-gray-100 pt-4">
-                <p className="text-sm text-gray-500 mb-4">
-                  Users added here will be upgraded to the Pro plan at no cost for testing purposes.
-                </p>
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm text-gray-500">
+                    Users added here will be upgraded to the Pro plan at no cost for testing purposes.
+                  </p>
+                  <button onClick={() => setShowTesterSearch(!showTesterSearch)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                    <Search className="w-4 h-4" />
+                  </button>
+                </div>
+                {showTesterSearch && (
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      value={testerSearchTerm}
+                      onChange={(e) => setTesterSearchTerm(e.target.value)}
+                      placeholder="Search testers..."
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                )}
                 <div className="flex gap-2 mb-4">
                   <input
                     type="email"
@@ -315,11 +363,11 @@ export default function AdminSection() {
                   </button>
                 </div>
 
-                {proTesters.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">No testers yet.</p>
+                {filteredTesters.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">No testers found.</p>
                 ) : (
-                  <div className="space-y-2">
-                    {proTesters.map((t) => (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {filteredTesters.map((t) => (
                       <div key={t.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
                         <div className="flex items-center gap-2">
                           <div>
