@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.businessName !== undefined) updates.business_name = data.businessName;
       if (data.planType !== undefined) updates.plan_type = data.planType;
       if (data.maxPoints !== undefined) updates.max_points = data.maxPoints;
+      if (data.profilePic !== undefined) updates.profile_pic = data.profilePic;
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
       if (!error) {
@@ -258,6 +259,7 @@ async function fetchAndSyncProfile(
       businessName: p.business_name || undefined,
       planType: p.plan_type,
       maxPoints: p.max_points ?? undefined,
+      profilePic: p.profile_pic || undefined,
     });
   } else {
     // Fallback if DB completely failed
