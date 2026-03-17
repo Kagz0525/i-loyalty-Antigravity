@@ -44,7 +44,6 @@ export default function Layout() {
               className="text-sm font-semibold text-orange-600 tracking-tight cursor-pointer hover:text-orange-800 transition-colors"
             >
               Welcome, {user?.role === 'vendor' ? (user?.businessName || user?.name || 'Guest') : (user?.name || 'Guest')}
-              {user?.role === 'vendor' && user?.maxPoints ? ` (Max Points: ${user.maxPoints})` : ''}
             </h1>
           </div>
           <button
@@ -88,19 +87,25 @@ export default function Layout() {
                   </h2>
                   <p className="text-sm text-gray-500">{user?.email}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    {user?.role === 'vendor' ? (
-                      <span
-                        onClick={() => setIsPlanModalOpen(true)}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${user?.planType === 'Pro'
-                            ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200'
-                          }`}
-                      >
-                        {user?.planType || 'Starter'} Plan
-                      </span>
-                    ) : (
+                    {user?.role === 'vendor' && (
+                      <>
+                        <span
+                          onClick={() => setIsPlanModalOpen(true)}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${user?.planType === 'Pro'
+                              ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200'
+                            }`}
+                        >
+                          {user?.planType || 'Starter'} Plan
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 capitalize">
+                          Vendor
+                        </span>
+                      </>
+                    )}
+                    {user?.role === 'customer' && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 capitalize">
-                        {user?.role}
+                        Customer
                       </span>
                     )}
                   </div>
