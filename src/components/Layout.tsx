@@ -86,17 +86,30 @@ export default function Layout() {
       setScannedCustomer(customer);
       setScannedRecord(record);
     } else {
-      // Use RPC email lookup if the QR had the new email format
-      // This bypasses RLS on profiles if vendor isn't yet linked.
+      // Try to find the profile using email or ID
       let profileData = null;
       let errorStr = '';
       
       if (customerEmail) {
+        // Try by email first
         const { data, error } = await supabase
-          .rpc('lookup_profile_by_email', { lookup_email: customerEmail.toLowerCase().trim() })
+          .from('profiles')
+          .select('*')
+          .eq('email', customerEmail.toLowerCase().trim())
           .maybeSingle();
         profileData = data;
-        if (error) errorStr += JSON.stringify(error) + '; ';
+        if (error) errorStr += 'email lookup: ' + JSON.stringify(error) + '; ';
+        
+        // If email lookup returned nothing, also try by ID
+        if (!profileData && customerId) {
+          const { data: idData, error: idError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', customerId)
+            .maybeSingle();
+          if (idData) profileData = idData;
+          if (idError) errorStr += 'id lookup: ' + JSON.stringify(idError) + '; ';
+        }
       } else {
         const { data, error } = await supabase
           .from('profiles')
@@ -104,7 +117,7 @@ export default function Layout() {
           .eq('id', customerId)
           .maybeSingle();
         profileData = data;
-        if (error) errorStr += JSON.stringify(error) + '; ';
+        if (error) errorStr += 'id lookup: ' + JSON.stringify(error) + '; ';
       }
 
       if (profileData) {
