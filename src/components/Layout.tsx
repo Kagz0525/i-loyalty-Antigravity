@@ -1,18 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useData, Customer, LoyaltyRecord } from '../context/DataContext';
 import { motion, AnimatePresence } from 'motion/react';
 import PlanModal from './PlanModal';
 import CustomerQrModal from './CustomerQrModal';
+import QrScannerModal from './QrScannerModal';
+import ScanResultModal from './ScanResultModal';
 import { supabase } from '../supabaseClient';
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isCustomerQrModalOpen, setIsCustomerQrModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isScanResultOpen, setIsScanResultOpen] = useState(false);
+  const [scannedCustomer, setScannedCustomer] = useState<Customer | null>(null);
+  const [scannedRecord, setScannedRecord] = useState<LoyaltyRecord | null>(null);
+  const [scanNotFound, setScanNotFound] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user, logout } = useAuth();
+  const { customers, loyaltyRecords } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,6 +50,108 @@ export default function Layout() {
     { name: 'Chat', path: '/chat', icon: MessageSquare },
   ];
 
+  // ── QR Scan Handler ─────────────────────────────────────────────────────
+  const handleQrClick = () => {
+    if (user?.role === 'customer') {
+      setIsCustomerQrModalOpen(true);
+    } else if (user?.role === 'vendor') {
+      setIsScannerOpen(true);
+    }
+  };
+
+  const handleScanSuccess = useCallback(async (decodedText: string) => {
+    setIsScannerOpen(false);
+    setScanNotFound(false);
+    setScannedCustomer(null);
+    setScannedRecord(null);
+    setIsScanResultOpen(true);
+
+    const customerId = decodedText.trim();
+
+    // Look for a loyalty record linking this vendor to the scanned customer
+    const record = loyaltyRecords.find(r => r.customerId === customerId);
+    const customer = customers.find(c => c.id === customerId);
+
+    if (record && customer) {
+      setScannedCustomer(customer);
+      setScannedRecord(record);
+    } else {
+      // Also try a direct DB lookup in case the data hasn't been fetched yet
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', customerId)
+        .maybeSingle();
+
+      const { data: recordData } = await supabase
+        .from('loyalty_records')
+        .select('*')
+        .eq('vendor_id', user?.id)
+        .eq('customer_id', customerId)
+        .maybeSingle();
+
+      if (profileData && recordData) {
+        setScannedCustomer({
+          id: profileData.id,
+          name: profileData.name,
+          email: profileData.email,
+          phone: profileData.phone || '',
+          joinedDate: profileData.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        });
+        setScannedRecord({
+          id: recordData.id,
+          vendorId: recordData.vendor_id,
+          customerId: recordData.customer_id,
+          points: recordData.points,
+          maxPoints: recordData.max_points,
+          visits: recordData.visits,
+          rewardCode: recordData.reward_code,
+        });
+      } else {
+        // Also try legacy customers table
+        const { data: legacyData } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', customerId)
+          .maybeSingle();
+
+        const { data: legacyRecord } = await supabase
+          .from('loyalty_records')
+          .select('*')
+          .eq('vendor_id', user?.id)
+          .eq('customer_id', customerId)
+          .maybeSingle();
+
+        if (legacyData && legacyRecord) {
+          setScannedCustomer({
+            id: legacyData.id,
+            name: legacyData.name,
+            email: legacyData.email,
+            phone: legacyData.phone || '',
+            joinedDate: legacyData.joined_date || new Date().toISOString().split('T')[0],
+          });
+          setScannedRecord({
+            id: legacyRecord.id,
+            vendorId: legacyRecord.vendor_id,
+            customerId: legacyRecord.customer_id,
+            points: legacyRecord.points,
+            maxPoints: legacyRecord.max_points,
+            visits: legacyRecord.visits,
+            rewardCode: legacyRecord.reward_code,
+          });
+        } else {
+          setScanNotFound(true);
+        }
+      }
+    }
+  }, [loyaltyRecords, customers, user?.id]);
+
+  const handleGoToProfile = () => {
+    setIsScanResultOpen(false);
+    // Navigate to home and the vendor dashboard will show the customer
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -51,7 +162,7 @@ export default function Layout() {
               {/* Spinning orange circle */}
               <div className="qr-spinner" />
               <button
-                onClick={() => user?.role === 'customer' ? setIsCustomerQrModalOpen(true) : {}}
+                onClick={handleQrClick}
                 className="relative w-10 h-10 bg-white text-orange-600 rounded-full shadow-sm border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 animate-qr-pulse"
                 title={user?.role === 'customer' ? "Show My QR Code" : "Scan QR Code"}
               >
@@ -216,6 +327,23 @@ export default function Layout() {
           userName={user.businessName || user.name || 'User'}
         />
       )}
+
+      {/* Vendor QR Scanner */}
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+      />
+
+      {/* Scan Result */}
+      <ScanResultModal
+        isOpen={isScanResultOpen}
+        onClose={() => setIsScanResultOpen(false)}
+        customer={scannedCustomer}
+        record={scannedRecord}
+        onGoToProfile={handleGoToProfile}
+        notFound={scanNotFound}
+      />
     </div>
   );
 }
