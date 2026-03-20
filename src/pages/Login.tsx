@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, UserCircle2, Eye, EyeOff, Info, ChevronDown, X } from 'lucide-react';
+import { Store, UserCircle2, Eye, EyeOff, Info, ChevronDown, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import LegalContent, { LegalType } from '../components/LegalContent';
 
 // ─── Test email persistence ───────────────────────────────────────────────────
 const TEST_EMAILS_KEY = 'iloyalty_test_emails';
@@ -203,6 +204,7 @@ export default function Login() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [viewingLegal, setViewingLegal] = useState<LegalType | null>(null);
 
   const resetForm = useCallback(() => {
     setEmail(''); setPassword(''); setConfirmPassword('');
@@ -399,6 +401,13 @@ export default function Login() {
         {submitting ? 'Creating account…' : 'Create account'}
       </button>
 
+      <p className="text-[10px] text-gray-400 text-center px-4 leading-tight mt-2">
+        By signing up, you agree to our{' '}
+        <button type="button" onClick={() => setViewingLegal('terms')} className="text-orange-500 hover:underline">Terms and Conditions</button>
+        {' '}and{' '}
+        <button type="button" onClick={() => setViewingLegal('privacy')} className="text-orange-500 hover:underline">Privacy Policy</button>
+      </p>
+
       <Divider label="or" />
 
       <button type="button" onClick={handleGoogleAuth} disabled={submitting}
@@ -476,6 +485,13 @@ export default function Login() {
             className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
             {submitting ? 'Creating account…' : 'Create account'}
           </button>
+          
+          <p className="text-[10px] text-gray-400 text-center px-4 leading-tight mt-2">
+            By signing up, you agree to our{' '}
+            <button type="button" onClick={() => setViewingLegal('terms')} className="text-orange-500 hover:underline">Terms and Conditions</button>
+            {' '}and{' '}
+            <button type="button" onClick={() => setViewingLegal('privacy')} className="text-orange-500 hover:underline">Privacy Policy</button>
+          </p>
         </form>
       </div>
     );
@@ -485,38 +501,50 @@ export default function Login() {
   const isSignUp = authMode === 'sign-up';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">
-            {isSignUp ? 'Create an account' : 'Welcome back'}
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-            <button onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
-              className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
-              {isSignUp ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4">
+      {viewingLegal ? (
+        <LegalContent type={viewingLegal} onBack={() => setViewingLegal(null)} />
+      ) : (
+        <>
+          <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900">
+                {isSignUp ? 'Create an account' : 'Welcome back'}
+              </h2>
+              <p className="mt-2 text-sm text-gray-600">
+                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                <button onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
+                  className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
+                  {isSignUp ? 'Sign in' : 'Sign up'}
+                </button>
+              </p>
+            </div>
 
-        {isSignUp && signUpStep === 'details' && (
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => { setSignUpStep('role'); setError(null); }}
-              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-              ← Back
-            </button>
-            <span className={`ml-auto text-xs font-semibold px-3 py-1 rounded-full ${role === 'vendor' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-              {role === 'vendor' ? '🏪 Vendor' : '👤 Customer'}
-            </span>
+            {isSignUp && signUpStep === 'details' && (
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => { setSignUpStep('role'); setError(null); }}
+                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                  ← Back
+                </button>
+                <span className={`ml-auto text-xs font-semibold px-3 py-1 rounded-full ${role === 'vendor' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {role === 'vendor' ? '🏪 Vendor' : '👤 Customer'}
+                </span>
+              </div>
+            )}
+
+            {!isSignUp && renderSignIn()}
+            {isSignUp && signUpStep === 'role' && renderRoleSelector()}
+            {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}
+            {isSignUp && signUpStep === 'details' && role === 'vendor' && renderVendorDetails()}
           </div>
-        )}
-
-        {!isSignUp && renderSignIn()}
-        {isSignUp && signUpStep === 'role' && renderRoleSelector()}
-        {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}
-        {isSignUp && signUpStep === 'details' && role === 'vendor' && renderVendorDetails()}
-      </div>
+          
+          <div className="mt-8 flex items-center gap-2 text-xs text-gray-400">
+            <button onClick={() => setViewingLegal('terms')} className="hover:text-gray-600 transition-colors">Terms</button>
+            <span>•</span>
+            <button onClick={() => setViewingLegal('privacy')} className="hover:text-gray-600 transition-colors">Privacy Policy</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
