@@ -4,11 +4,13 @@ import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, Shiel
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import PlanModal from './PlanModal';
+import CustomerQrModal from './CustomerQrModal';
 import { supabase } from '../supabaseClient';
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isCustomerQrModalOpen, setIsCustomerQrModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -45,15 +47,17 @@ export default function Layout() {
       <header className="bg-white shadow-sm z-20 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {user?.role === 'vendor' && (
+            <div className="relative p-1">
+              {/* Spinning orange circle */}
+              <div className="qr-spinner" />
               <button
-                onClick={() => { }}
-                className="w-10 h-10 bg-white text-orange-600 rounded-full shadow-sm border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                title="Scan QR Code"
+                onClick={() => user?.role === 'customer' ? setIsCustomerQrModalOpen(true) : {}}
+                className="relative w-10 h-10 bg-white text-orange-600 rounded-full shadow-sm border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 animate-qr-pulse"
+                title={user?.role === 'customer' ? "Show My QR Code" : "Scan QR Code"}
               >
                 <QrCode className="w-5 h-5" />
               </button>
-            )}
+            </div>
             <h1
               onClick={() => navigate('/profile')}
               className="text-sm font-semibold text-orange-600 tracking-tight cursor-pointer hover:text-orange-800 transition-colors"
@@ -203,6 +207,15 @@ export default function Layout() {
         isOpen={isPlanModalOpen}
         onClose={() => setIsPlanModalOpen(false)}
       />
+
+      {user?.id && (
+        <CustomerQrModal 
+          isOpen={isCustomerQrModalOpen}
+          onClose={() => setIsCustomerQrModalOpen(false)}
+          userId={user.id}
+          userName={user.businessName || user.name || 'User'}
+        />
+      )}
     </div>
   );
 }

@@ -10,6 +10,37 @@
   --color-orange-600: #ea7600;
   --color-orange-700: #c25b00;
   --color-orange-800: #9a4800;
-  --color-orange-900: #7c3d04;
   --color-orange-950: #431d00;
 }
+
+@layer utilities {
+  .animate-qr-pulse {
+    animation: qr-pulse 10s infinite;
+  }
+  
+  .qr-spinner {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: #fb8c00;
+    animation: qr-spin 10s linear infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes qr-spin {
+  0% { transform: rotate(0deg); opacity: 1; }
+  15% { transform: rotate(360deg); opacity: 1; }
+  16% { opacity: 0; }
+  100% { transform: rotate(360deg); opacity: 0; }
+}
+
+@keyframes qr-pulse {
+  0% { transform: scale(1); }
+  16% { transform: scale(1); }
+  18% { transform: scale(1.15); }
+  20% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
