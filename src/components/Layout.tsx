@@ -90,7 +90,7 @@ export default function Layout() {
         .eq('customer_id', customerId)
         .maybeSingle();
 
-      if (profileData && recordData) {
+      if (profileData) {
         setScannedCustomer({
           id: profileData.id,
           name: profileData.name,
@@ -98,15 +98,21 @@ export default function Layout() {
           phone: profileData.phone || '',
           joinedDate: profileData.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
         });
-        setScannedRecord({
-          id: recordData.id,
-          vendorId: recordData.vendor_id,
-          customerId: recordData.customer_id,
-          points: recordData.points,
-          maxPoints: recordData.max_points,
-          visits: recordData.visits,
-          rewardCode: recordData.reward_code,
-        });
+        
+        if (recordData) {
+          setScannedRecord({
+            id: recordData.id,
+            vendorId: recordData.vendor_id,
+            customerId: recordData.customer_id,
+            points: recordData.points,
+            maxPoints: recordData.max_points,
+            visits: recordData.visits,
+            rewardCode: recordData.reward_code,
+          });
+        } else {
+          // Exists but new to this vendor
+          setScannedRecord(null);
+        }
       } else {
         // Also try legacy customers table
         const { data: legacyData } = await supabase
@@ -122,7 +128,7 @@ export default function Layout() {
           .eq('customer_id', customerId)
           .maybeSingle();
 
-        if (legacyData && legacyRecord) {
+        if (legacyData) {
           setScannedCustomer({
             id: legacyData.id,
             name: legacyData.name,
@@ -130,21 +136,57 @@ export default function Layout() {
             phone: legacyData.phone || '',
             joinedDate: legacyData.joined_date || new Date().toISOString().split('T')[0],
           });
-          setScannedRecord({
-            id: legacyRecord.id,
-            vendorId: legacyRecord.vendor_id,
-            customerId: legacyRecord.customer_id,
-            points: legacyRecord.points,
-            maxPoints: legacyRecord.max_points,
-            visits: legacyRecord.visits,
-            rewardCode: legacyRecord.reward_code,
-          });
+          
+          if (legacyRecord) {
+            setScannedRecord({
+              id: legacyRecord.id,
+              vendorId: legacyRecord.vendor_id,
+              customerId: legacyRecord.customer_id,
+              points: legacyRecord.points,
+              maxPoints: legacyRecord.max_points,
+              visits: legacyRecord.visits,
+              rewardCode: legacyRecord.reward_code,
+            });
+          } else {
+            // New legacy customer
+            setScannedRecord(null);
+          }
         } else {
           setScanNotFound(true);
         }
       }
     }
   }, [loyaltyRecords, customers, user?.id]);
+
+  const handleEnrollAndAssign = async (date: string) => {
+    if (!scannedCustomer || !user?.id) return;
+    
+    setIsScanResultOpen(false);
+    
+    // Default max points to 5 if not in user profile
+    const maxPoints = (user as any).maxPoints || 5;
+    
+    // 1. Create loyalty_records
+    const { data: newRecord } = await supabase.from('loyalty_records').insert({
+      vendor_id: user.id,
+      customer_id: scannedCustomer.id,
+      points: 1,
+      max_points: maxPoints,
+      visits: 1
+    }).select().single();
+
+    if (newRecord) {
+      // 2. Create point_history
+      await supabase.from('point_history').insert({
+        record_id: newRecord.id,
+        date: new Date(date).toISOString(),
+        type: 'earned'
+      });
+      
+      // 3. Reload to fetch fresh data
+      window.location.reload();
+    }
+  };
 
   const handleGoToProfile = () => {
     setIsScanResultOpen(false);
@@ -342,6 +384,7 @@ export default function Layout() {
         customer={scannedCustomer}
         record={scannedRecord}
         onGoToProfile={handleGoToProfile}
+        onEnrollAndAssign={handleEnrollAndAssign}
         notFound={scanNotFound}
       />
     </div>

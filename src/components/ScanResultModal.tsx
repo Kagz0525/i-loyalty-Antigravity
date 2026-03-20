@@ -9,6 +9,7 @@ interface ScanResultModalProps {
   customer: Customer | null;
   record: LoyaltyRecord | null;
   onGoToProfile: () => void;
+  onEnrollAndAssign: (date: string) => void;
   notFound: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function ScanResultModal({
   customer,
   record,
   onGoToProfile,
+  onEnrollAndAssign,
   notFound,
 }: ScanResultModalProps) {
   const { addPoint } = useData();
@@ -99,7 +101,7 @@ export default function ScanResultModal({
                   Close
                 </button>
               </div>
-            ) : customer && record ? (
+            ) : customer ? (
               /* Customer Found */
               <div className="p-6">
                 {/* Customer Info Header */}
@@ -109,45 +111,67 @@ export default function ScanResultModal({
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">{customer.name}</h2>
                   <p className="text-sm text-gray-500">{customer.email}</p>
-                  <div className="mt-3 inline-flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
-                    <span className="text-2xl font-bold text-orange-600">{record.points}</span>
-                    <span className="text-gray-400">/</span>
-                    <span className="text-2xl font-bold text-gray-300">{record.maxPoints}</span>
-                    <span className="text-xs text-gray-400 ml-1">points</span>
-                  </div>
+                  
+                  {record && (
+                    <div className="mt-3 inline-flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl">
+                      <span className="text-2xl font-bold text-orange-600">{record.points}</span>
+                      <span className="text-gray-400">/</span>
+                      <span className="text-2xl font-bold text-gray-300">{record.maxPoints}</span>
+                      <span className="text-xs text-gray-400 ml-1">points</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  {!isRewardReady ? (
-                    <>
-                      {/* Date picker */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                          Points Earned Date
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                          />
-                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <Calendar className="h-5 w-5 text-gray-400" />
-                          </div>
+                  {/* Date picker for both flows */}
+                  {(!record || !isRewardReady) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                        Points Earned Date
+                      </label>
+                      <div className="relative mb-3">
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <Calendar className="h-5 w-5 text-gray-400" />
                         </div>
                       </div>
+                    </div>
+                  )}
 
-                      {/* Assign Point button */}
+                  {!record ? (
+                    <>
+                      <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-3 text-center">
+                        <h3 className="text-orange-800 font-bold mb-1">New Customer!</h3>
+                        <p className="text-sm text-orange-600">This customer is not yet in your loyalty program.</p>
+                      </div>
                       <button
-                        onClick={handleAssignPoint}
+                        onClick={() => {
+                          setPointAdded(true);
+                          setTimeout(() => {
+                            setPointAdded(false);
+                            onEnrollAndAssign(selectedDate);
+                          }, 1000);
+                        }}
                         className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
                       >
                         <Plus className="w-5 h-5" />
-                        Assign 1 Loyalty Point
+                        Enroll & Assign 1st Point
                       </button>
                     </>
+                  ) : !isRewardReady ? (
+                    <button
+                      onClick={handleAssignPoint}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Assign 1 Loyalty Point
+                    </button>
                   ) : (
                     <div className="text-center bg-emerald-50 p-4 rounded-xl border border-emerald-100 mb-2">
                       <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
@@ -158,14 +182,16 @@ export default function ScanResultModal({
                     </div>
                   )}
 
-                  {/* Go to profile button */}
-                  <button
-                    onClick={onGoToProfile}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                  >
-                    <User className="w-4 h-4" />
-                    Go to Customer's Profile
-                  </button>
+                  {/* Go to profile button ONLY if record exists */}
+                  {record && (
+                    <button
+                      onClick={onGoToProfile}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      Go to Customer's Profile
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
