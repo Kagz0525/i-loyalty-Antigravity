@@ -67,141 +67,69 @@ export default function Layout() {
     setIsScanResultOpen(true);
 
     const scannedText = decodedText.trim();
-    let customerId = scannedText;
+    let customerId = '';
     let customerEmail = '';
+    let customerName = '';
 
+    // Parse QR code payload
     try {
       const parsed = JSON.parse(scannedText);
-      if (parsed.id) customerId = parsed.id;
-      if (parsed.email) customerEmail = parsed.email;
+      customerId = parsed.id || '';
+      customerEmail = parsed.email || '';
+      customerName = parsed.name || '';
     } catch {
-      // It's just a regular old UUID string from the first version
+      // Old format: plain UUID string
+      customerId = scannedText;
     }
 
-    // Look for a loyalty record linking this vendor to the scanned customer
-    const record = loyaltyRecords.find(r => r.customerId === customerId);
-    const customer = customers.find(c => c.id === customerId);
+    if (!customerId && !customerEmail) {
+      setScanNotFound(true);
+      return;
+    }
 
-    if (record && customer) {
-      setScannedCustomer(customer);
-      setScannedRecord(record);
+    // Step 1: Check local state first (fastest path)
+    const localRecord = loyaltyRecords.find(r => r.customerId === customerId);
+    const localCustomer = customers.find(c => c.id === customerId);
+
+    if (localRecord && localCustomer) {
+      setScannedCustomer(localCustomer);
+      setScannedRecord(localRecord);
+      return;
+    }
+
+    // Step 2: We have the customer info from the QR code itself.
+    // Build the customer object from QR data — no profile DB query needed!
+    const qrCustomer: Customer = {
+      id: customerId,
+      name: customerName || customerEmail || 'Customer',
+      email: customerEmail,
+      phone: '',
+      joinedDate: new Date().toISOString().split('T')[0],
+    };
+
+    setScannedCustomer(qrCustomer);
+
+    // Step 3: Only check if a loyalty_records row exists for THIS vendor + customer
+    const { data: recordData } = await supabase
+      .from('loyalty_records')
+      .select('*')
+      .eq('vendor_id', user?.id)
+      .eq('customer_id', customerId)
+      .maybeSingle();
+
+    if (recordData) {
+      setScannedRecord({
+        id: recordData.id,
+        vendorId: recordData.vendor_id,
+        customerId: recordData.customer_id,
+        points: recordData.points,
+        maxPoints: recordData.max_points,
+        visits: recordData.visits,
+        rewardCode: recordData.reward_code,
+      });
     } else {
-      // Try to find the profile using email or ID
-      let profileData = null;
-      let errorStr = '';
-      
-      if (customerEmail) {
-        // Try by email first
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', customerEmail.toLowerCase().trim())
-          .maybeSingle();
-        profileData = data;
-        if (error) errorStr += 'email lookup: ' + JSON.stringify(error) + '; ';
-        
-        // If email lookup returned nothing, also try by ID
-        if (!profileData && customerId) {
-          const { data: idData, error: idError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', customerId)
-            .maybeSingle();
-          if (idData) profileData = idData;
-          if (idError) errorStr += 'id lookup: ' + JSON.stringify(idError) + '; ';
-        }
-      } else {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', customerId)
-          .maybeSingle();
-        profileData = data;
-        if (error) errorStr += 'id lookup: ' + JSON.stringify(error) + '; ';
-      }
-
-      if (profileData) {
-        setScannedCustomer({
-          id: profileData.id,
-          name: profileData.name,
-          email: profileData.email,
-          phone: profileData.phone || '',
-          joinedDate: profileData.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-        });
-        
-        const { data: recordData, error: recordError } = await supabase
-          .from('loyalty_records')
-          .select('*')
-          .eq('vendor_id', user?.id)
-          .eq('customer_id', customerId)
-          .maybeSingle();
-          
-        if (recordError) errorStr += JSON.stringify(recordError) + '; ';
-        
-        if (recordData) {
-          setScannedRecord({
-            id: recordData.id,
-            vendorId: recordData.vendor_id,
-            customerId: recordData.customer_id,
-            points: recordData.points,
-            maxPoints: recordData.max_points,
-            visits: recordData.visits,
-            rewardCode: recordData.reward_code,
-          });
-        } else {
-          // Exists but new to this vendor
-          setScannedRecord(null);
-        }
-      } else {
-        // Also try legacy customers table
-        const { data: legacyData, error: legacyError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('id', customerId)
-          .maybeSingle();
-          
-        if (legacyError) errorStr += JSON.stringify(legacyError) + '; ';
-
-        const { data: legacyRecord, error: lRecordError } = await supabase
-          .from('loyalty_records')
-          .select('*')
-          .eq('vendor_id', user?.id)
-          .eq('customer_id', customerId)
-          .maybeSingle();
-          
-        if (lRecordError) errorStr += JSON.stringify(lRecordError) + '; ';
-
-        if (legacyData) {
-          setScannedCustomer({
-            id: legacyData.id,
-            name: legacyData.name,
-            email: legacyData.email,
-            phone: legacyData.phone || '',
-            joinedDate: legacyData.joined_date || new Date().toISOString().split('T')[0],
-          });
-          
-          if (legacyRecord) {
-            setScannedRecord({
-              id: legacyRecord.id,
-              vendorId: legacyRecord.vendor_id,
-              customerId: legacyRecord.customer_id,
-              points: legacyRecord.points,
-              maxPoints: legacyRecord.max_points,
-              visits: legacyRecord.visits,
-              rewardCode: legacyRecord.reward_code,
-            });
-          } else {
-            // New legacy customer
-            setScannedRecord(null);
-          }
-        } else {
-          // Completely not found in DB
-          if (errorStr.length > 0) {
-            alert('Debug info: ' + errorStr);
-          }
-          setScanNotFound(true);
-        }
-      }
+      // New customer for this vendor — no record yet
+      setScannedRecord(null);
     }
   }, [loyaltyRecords, customers, user?.id]);
 
