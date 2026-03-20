@@ -66,7 +66,17 @@ export default function Layout() {
     setScannedRecord(null);
     setIsScanResultOpen(true);
 
-    const customerId = decodedText.trim();
+    const scannedText = decodedText.trim();
+    let customerId = scannedText;
+    let customerEmail = '';
+
+    try {
+      const parsed = JSON.parse(scannedText);
+      if (parsed.id) customerId = parsed.id;
+      if (parsed.email) customerEmail = parsed.email;
+    } catch {
+      // It's just a regular old UUID string from the first version
+    }
 
     // Look for a loyalty record linking this vendor to the scanned customer
     const record = loyaltyRecords.find(r => r.customerId === customerId);
@@ -76,19 +86,26 @@ export default function Layout() {
       setScannedCustomer(customer);
       setScannedRecord(record);
     } else {
-      // Also try a direct DB lookup in case the data hasn't been fetched yet
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', customerId)
-        .maybeSingle();
-
-      const { data: recordData } = await supabase
-        .from('loyalty_records')
-        .select('*')
-        .eq('vendor_id', user?.id)
-        .eq('customer_id', customerId)
-        .maybeSingle();
+      // Use RPC email lookup if the QR had the new email format
+      // This bypasses RLS on profiles if vendor isn't yet linked.
+      let profileData = null;
+      let errorStr = '';
+      
+      if (customerEmail) {
+        const { data, error } = await supabase
+          .rpc('lookup_profile_by_email', { lookup_email: customerEmail.toLowerCase().trim() })
+          .maybeSingle();
+        profileData = data;
+        if (error) errorStr += JSON.stringify(error) + '; ';
+      } else {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', customerId)
+          .maybeSingle();
+        profileData = data;
+        if (error) errorStr += JSON.stringify(error) + '; ';
+      }
 
       if (profileData) {
         setScannedCustomer({
@@ -98,6 +115,15 @@ export default function Layout() {
           phone: profileData.phone || '',
           joinedDate: profileData.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
         });
+        
+        const { data: recordData, error: recordError } = await supabase
+          .from('loyalty_records')
+          .select('*')
+          .eq('vendor_id', user?.id)
+          .eq('customer_id', customerId)
+          .maybeSingle();
+          
+        if (recordError) errorStr += JSON.stringify(recordError) + '; ';
         
         if (recordData) {
           setScannedRecord({
@@ -115,18 +141,22 @@ export default function Layout() {
         }
       } else {
         // Also try legacy customers table
-        const { data: legacyData } = await supabase
+        const { data: legacyData, error: legacyError } = await supabase
           .from('customers')
           .select('*')
           .eq('id', customerId)
           .maybeSingle();
+          
+        if (legacyError) errorStr += JSON.stringify(legacyError) + '; ';
 
-        const { data: legacyRecord } = await supabase
+        const { data: legacyRecord, error: lRecordError } = await supabase
           .from('loyalty_records')
           .select('*')
           .eq('vendor_id', user?.id)
           .eq('customer_id', customerId)
           .maybeSingle();
+          
+        if (lRecordError) errorStr += JSON.stringify(lRecordError) + '; ';
 
         if (legacyData) {
           setScannedCustomer({
@@ -152,6 +182,10 @@ export default function Layout() {
             setScannedRecord(null);
           }
         } else {
+          // Completely not found in DB
+          if (errorStr.length > 0) {
+            alert('Debug info: ' + errorStr);
+          }
           setScanNotFound(true);
         }
       }
@@ -366,6 +400,7 @@ export default function Layout() {
           isOpen={isCustomerQrModalOpen}
           onClose={() => setIsCustomerQrModalOpen(false)}
           userId={user.id}
+          userEmail={user.email || ''}
           userName={user.businessName || user.name || 'User'}
         />
       )}

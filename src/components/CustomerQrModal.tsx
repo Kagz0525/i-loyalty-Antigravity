@@ -7,10 +7,11 @@ interface CustomerQrModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
+  userEmail: string;
   userName: string;
 }
 
-export default function CustomerQrModal({ isOpen, onClose, userId, userName }: CustomerQrModalProps) {
+export default function CustomerQrModal({ isOpen, onClose, userId, userEmail, userName }: CustomerQrModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -44,7 +45,7 @@ export default function CustomerQrModal({ isOpen, onClose, userId, userName }: C
 
             <div className="bg-white p-6 rounded-2xl border-2 border-orange-100 inline-block mb-6 shadow-sm">
               <QRCodeSVG 
-                value={userId} 
+                value={JSON.stringify({ id: userId, email: userEmail })} 
                 size={200}
                 level="H"
                 includeMargin={false}
@@ -65,3 +66,4 @@ export default function CustomerQrModal({ isOpen, onClose, userId, userName }: C
     </AnimatePresence>
   );
 }
+
