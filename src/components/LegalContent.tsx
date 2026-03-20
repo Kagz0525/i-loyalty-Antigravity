@@ -13,7 +13,7 @@ export default function LegalContent({ type, onBack }: LegalContentProps) {
     <div className="max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl overflow-y-auto max-h-[80vh] relative">
       <button 
         onClick={onBack}
-        className="flex items-center gap-2 text-sm font-semibold text-orange-600 hover:text-orange-500 mb-6 sticky top-0 bg-white py-2 z-10"
+        className="flex items-center gap-2 text-sm font-semibold text-orange-600 hover:text-orange-500 mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Sign In
