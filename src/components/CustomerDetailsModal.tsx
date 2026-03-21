@@ -66,7 +66,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
     <>
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center sm:p-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-14 sm:p-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -78,7 +78,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-2xl shadow-2xl overflow-y-auto flex flex-col max-w-lg"
+              className="relative bg-white w-full max-h-full sm:h-auto sm:max-h-[90vh] rounded-2xl shadow-2xl overflow-y-auto flex flex-col max-w-lg"
             >
               <button
                 onClick={onClose}

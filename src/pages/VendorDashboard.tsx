@@ -11,6 +11,7 @@ export default function VendorDashboard() {
   const { customers, loyaltyRecords, addCustomer, addPoint, redeemReward } = useData();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -26,40 +27,44 @@ export default function VendorDashboard() {
   const [phoneError, setPhoneError] = useState('');
 
   // Filter records for this vendor
-  const vendorRecords = loyaltyRecords.filter((r) => r.vendorId === user?.id);
+  const vendorRecords = React.useMemo(() => loyaltyRecords.filter((r) => r.vendorId === user?.id), [loyaltyRecords, user?.id]);
   const isPlanLimitReached = user?.planType === 'Starter' && vendorRecords.length >= 10;
 
   // Join records with customer data (unfiltered for auto-open, filtered for display)
-  const allCustomerCards = vendorRecords.map((record) => {
-    const customer = customers.find((c) => c.id === record.customerId);
-    return { ...record, customer };
-  });
+  const allCustomerCards = React.useMemo(() => {
+    return vendorRecords.map((record) => {
+      const customer = customers.find((c) => c.id === record.customerId);
+      return { ...record, customer };
+    });
+  }, [vendorRecords, customers]);
 
-  const customerCards = allCustomerCards.filter(card => {
-    if (!card.customer) return false;
-    
-    const matchesSearch = card.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          card.customer.phone.includes(searchQuery) ||
-                          card.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
-                          
-    const matchesFilter = showRewardsDue ? card.points >= card.maxPoints : true;
-    
-    return matchesSearch && matchesFilter;
-  });
+  const customerCards = React.useMemo(() => {
+    return allCustomerCards.filter(card => {
+      if (!card.customer) return false;
+      
+      const matchesSearch = card.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            card.customer.phone.includes(searchQuery) ||
+                            card.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+                            
+      const matchesFilter = showRewardsDue ? card.points >= card.maxPoints : true;
+      
+      return matchesSearch && matchesFilter;
+    });
+  }, [allCustomerCards, searchQuery, showRewardsDue]);
 
   // Auto-open customer profile from QR scan navigation
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const openCustomerId = params.get('openCustomer');
+    const openCustomerId = searchParams.get('openCustomer');
     if (openCustomerId && allCustomerCards.length > 0) {
       const card = allCustomerCards.find(c => c.customerId === openCustomerId);
       if (card && card.customer) {
         setSelectedCustomerRecord(card);
       }
-      // Clean the URL param so it doesn't re-trigger
-      navigate('/', { replace: true });
+      // Clean the URL param atomically so it doesn't re-trigger
+      searchParams.delete('openCustomer');
+      setSearchParams(searchParams, { replace: true });
     }
-  }, [location.search, allCustomerCards, navigate]);
+  }, [searchParams, allCustomerCards, setSearchParams]);
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '');
