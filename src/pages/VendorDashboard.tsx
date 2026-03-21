@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Search, Plus, CheckCircle2, Gift, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 
 export default function VendorDashboard() {
   const { user } = useAuth();
   const { customers, loyaltyRecords, addCustomer, addPoint, redeemReward } = useData();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -26,11 +29,13 @@ export default function VendorDashboard() {
   const vendorRecords = loyaltyRecords.filter((r) => r.vendorId === user?.id);
   const isPlanLimitReached = user?.planType === 'Starter' && vendorRecords.length >= 10;
 
-  // Join records with customer data
-  const customerCards = vendorRecords.map((record) => {
+  // Join records with customer data (unfiltered for auto-open, filtered for display)
+  const allCustomerCards = vendorRecords.map((record) => {
     const customer = customers.find((c) => c.id === record.customerId);
     return { ...record, customer };
-  }).filter(card => {
+  });
+
+  const customerCards = allCustomerCards.filter(card => {
     if (!card.customer) return false;
     
     const matchesSearch = card.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -41,6 +46,20 @@ export default function VendorDashboard() {
     
     return matchesSearch && matchesFilter;
   });
+
+  // Auto-open customer profile from QR scan navigation
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const openCustomerId = params.get('openCustomer');
+    if (openCustomerId && allCustomerCards.length > 0) {
+      const card = allCustomerCards.find(c => c.customerId === openCustomerId);
+      if (card && card.customer) {
+        setSelectedCustomerRecord(card);
+      }
+      // Clean the URL param so it doesn't re-trigger
+      navigate('/', { replace: true });
+    }
+  }, [location.search, allCustomerCards, navigate]);
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '');

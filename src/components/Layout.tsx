@@ -215,8 +215,12 @@ export default function Layout() {
 
   const handleGoToProfile = () => {
     setIsScanResultOpen(false);
-    // Navigate to home and the vendor dashboard will show the customer
-    navigate('/');
+    // Navigate to home with the customer's record ID so VendorDashboard auto-opens their profile
+    if (scannedRecord) {
+      navigate('/?openCustomer=' + scannedRecord.customerId);
+    } else {
+      navigate('/');
+    }
   };
 
   return (
