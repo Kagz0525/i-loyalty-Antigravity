@@ -82,7 +82,11 @@ export default function Layout() {
       customerId = scannedText;
     }
 
+    // DEBUG: Show what was scanned (temporary — remove after testing)
+    console.log('[QR Scan]', { scannedText, customerId, customerEmail, customerName });
+
     if (!customerId && !customerEmail) {
+      alert('Invalid QR code scanned. Raw data: ' + scannedText.substring(0, 100));
       setScanNotFound(true);
       return;
     }
@@ -110,12 +114,16 @@ export default function Layout() {
     setScannedCustomer(qrCustomer);
 
     // Step 3: Only check if a loyalty_records row exists for THIS vendor + customer
-    const { data: recordData } = await supabase
+    const { data: recordData, error: recordError } = await supabase
       .from('loyalty_records')
       .select('*')
       .eq('vendor_id', user?.id)
       .eq('customer_id', customerId)
       .maybeSingle();
+
+    if (recordError) {
+      console.error('[QR Scan] loyalty_records lookup error:', recordError);
+    }
 
     if (recordData) {
       setScannedRecord({
@@ -134,32 +142,53 @@ export default function Layout() {
   }, [loyaltyRecords, customers, user?.id]);
 
   const handleEnrollAndAssign = async (date: string) => {
-    if (!scannedCustomer || !user?.id) return;
+    if (!scannedCustomer || !user?.id) {
+      alert('Error: No customer data available. Please scan again.');
+      return;
+    }
     
     setIsScanResultOpen(false);
     
-    // Default max points to 5 if not in user profile
+    // Default max points to vendor's maxPoints setting, fallback to 5
     const maxPoints = (user as any).maxPoints || 5;
     
     // 1. Create loyalty_records
-    const { data: newRecord } = await supabase.from('loyalty_records').insert({
-      vendor_id: user.id,
-      customer_id: scannedCustomer.id,
-      points: 1,
-      max_points: maxPoints,
-      visits: 1
-    }).select().single();
+    const { data: newRecord, error: insertError } = await supabase
+      .from('loyalty_records')
+      .insert({
+        vendor_id: user.id,
+        customer_id: scannedCustomer.id,
+        points: 1,
+        max_points: maxPoints,
+        visits: 1
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      alert('Could not enroll customer: ' + insertError.message);
+      console.error('[Enroll] Insert error:', insertError);
+      return;
+    }
 
     if (newRecord) {
       // 2. Create point_history
-      await supabase.from('point_history').insert({
-        record_id: newRecord.id,
-        date: new Date(date).toISOString(),
-        type: 'earned'
-      });
+      const { error: historyError } = await supabase
+        .from('point_history')
+        .insert({
+          record_id: newRecord.id,
+          date: new Date(date).toISOString(),
+          type: 'earned'
+        });
+      
+      if (historyError) {
+        console.error('[Enroll] History insert error:', historyError);
+      }
       
       // 3. Reload to fetch fresh data
       window.location.reload();
+    } else {
+      alert('Enrollment failed. No record was created. Please try again.');
     }
   };
 
