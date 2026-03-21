@@ -82,8 +82,7 @@ export default function Layout() {
       customerId = scannedText;
     }
 
-    // DEBUG: Show what was scanned (temporary — remove after testing)
-    console.log('[QR Scan]', { scannedText, customerId, customerEmail, customerName });
+    console.log('[QR Scan]', { customerId, customerEmail, customerName });
 
     if (!customerId && !customerEmail) {
       alert('Invalid QR code scanned. Raw data: ' + scannedText.substring(0, 100));
@@ -91,9 +90,20 @@ export default function Layout() {
       return;
     }
 
-    // Step 1: Check local state first (fastest path)
-    const localRecord = loyaltyRecords.find(r => r.customerId === customerId);
-    const localCustomer = customers.find(c => c.id === customerId);
+    // Step 1: Check local state by ID first (fastest path)
+    let localRecord = loyaltyRecords.find(r => r.customerId === customerId);
+    let localCustomer = customers.find(c => c.id === customerId);
+
+    // Step 1b: If not found by ID, try matching by EMAIL in local state
+    // This handles the case where the customer was added before signing up
+    // (legacy customer_id in loyalty_records ≠ auth UUID in QR code)
+    if ((!localRecord || !localCustomer) && customerEmail) {
+      const emailCustomer = customers.find(c => c.email.toLowerCase() === customerEmail.toLowerCase());
+      if (emailCustomer) {
+        localCustomer = emailCustomer;
+        localRecord = loyaltyRecords.find(r => r.customerId === emailCustomer.id);
+      }
+    }
 
     if (localRecord && localCustomer) {
       setScannedCustomer(localCustomer);
@@ -101,8 +111,45 @@ export default function Layout() {
       return;
     }
 
-    // Step 2: We have the customer info from the QR code itself.
-    // Build the customer object from QR data — no profile DB query needed!
+    // Step 2: DB fallback — find the legacy customer by email
+    if (customerEmail) {
+      const { data: legacyCustomer } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('email', customerEmail.toLowerCase().trim())
+        .maybeSingle();
+
+      if (legacyCustomer) {
+        const { data: legacyRecord } = await supabase
+          .from('loyalty_records')
+          .select('*')
+          .eq('vendor_id', user?.id)
+          .eq('customer_id', legacyCustomer.id)
+          .maybeSingle();
+
+        if (legacyRecord) {
+          setScannedCustomer({
+            id: legacyCustomer.id,
+            name: legacyCustomer.name,
+            email: legacyCustomer.email,
+            phone: legacyCustomer.phone || '',
+            joinedDate: legacyCustomer.joined_date || new Date().toISOString().split('T')[0],
+          });
+          setScannedRecord({
+            id: legacyRecord.id,
+            vendorId: legacyRecord.vendor_id,
+            customerId: legacyRecord.customer_id,
+            points: legacyRecord.points,
+            maxPoints: legacyRecord.max_points,
+            visits: legacyRecord.visits,
+            rewardCode: legacyRecord.reward_code,
+          });
+          return;
+        }
+      }
+    }
+
+    // Step 3: Not found anywhere — show as new customer from QR data
     const qrCustomer: Customer = {
       id: customerId,
       name: customerName || customerEmail || 'Customer',
@@ -112,33 +159,7 @@ export default function Layout() {
     };
 
     setScannedCustomer(qrCustomer);
-
-    // Step 3: Only check if a loyalty_records row exists for THIS vendor + customer
-    const { data: recordData, error: recordError } = await supabase
-      .from('loyalty_records')
-      .select('*')
-      .eq('vendor_id', user?.id)
-      .eq('customer_id', customerId)
-      .maybeSingle();
-
-    if (recordError) {
-      console.error('[QR Scan] loyalty_records lookup error:', recordError);
-    }
-
-    if (recordData) {
-      setScannedRecord({
-        id: recordData.id,
-        vendorId: recordData.vendor_id,
-        customerId: recordData.customer_id,
-        points: recordData.points,
-        maxPoints: recordData.max_points,
-        visits: recordData.visits,
-        rewardCode: recordData.reward_code,
-      });
-    } else {
-      // New customer for this vendor — no record yet
-      setScannedRecord(null);
-    }
+    setScannedRecord(null);
   }, [loyaltyRecords, customers, user?.id]);
 
   const handleEnrollAndAssign = async (date: string) => {
