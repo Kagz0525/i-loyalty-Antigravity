@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Search, Plus, CheckCircle2, Gift, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 
 export default function VendorDashboard() {
