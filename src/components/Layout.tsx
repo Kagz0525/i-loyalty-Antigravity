@@ -21,7 +21,7 @@ export default function Layout() {
   const [scanNotFound, setScanNotFound] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user, logout } = useAuth();
-  const { customers, loyaltyRecords, addCustomer, addPoint } = useData();
+  const { customers, loyaltyRecords } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -218,7 +218,7 @@ export default function Layout() {
     scanCallbackRef.current(decodedText);
   }, []);
 
-  const handleEnrollAndAssign = async (date: string) => {
+  const handleEnrollAndAssign = async (_date: string) => {
     if (!scannedCustomer || !user?.id) {
       alert('Error: No customer data available. Please scan again.');
       return;
@@ -226,29 +226,14 @@ export default function Layout() {
     
     setIsScanResultOpen(false);
     
-    // Default max points to vendor's maxPoints setting, fallback to 5
-    const maxPoints = (user as any).maxPoints || 5;
-    
-    // Use the DataContext addCustomer flow which properly handles
-    // the foreign key constraint by checking profiles first,
-    // then falling back to the customers table.
-    const customerPayload: Customer = {
-      id: scannedCustomer.id,
-      name: scannedCustomer.name,
-      email: scannedCustomer.email,
-      phone: scannedCustomer.phone || '',
-      joinedDate: new Date().toISOString().split('T')[0],
-    };
-    
-    const recordId = await addCustomer(customerPayload, user.id, maxPoints);
-    
-    if (recordId) {
-      // Assign the first point with the selected date
-      await addPoint(recordId, new Date(date).toISOString());
-    }
-    
-    // Navigate to home to see the updated dashboard
-    navigate('/');
+    // Navigate to home with customer details as query params
+    // so the Register Customer modal opens pre-populated for vendor review
+    const params = new URLSearchParams({
+      registerCustomer: 'true',
+      name: scannedCustomer.name || '',
+      email: scannedCustomer.email || '',
+    });
+    navigate('/?' + params.toString());
   };
 
   const handleGoToProfile = () => {

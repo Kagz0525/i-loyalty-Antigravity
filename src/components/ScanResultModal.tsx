@@ -151,17 +151,11 @@ export default function ScanResultModal({
                         <p className="text-sm text-orange-600">This customer is not yet in your loyalty program.</p>
                       </div>
                       <button
-                        onClick={() => {
-                          setPointAdded(true);
-                          setTimeout(() => {
-                            setPointAdded(false);
-                            onEnrollAndAssign(selectedDate);
-                          }, 1000);
-                        }}
+                        onClick={() => onEnrollAndAssign(selectedDate)}
                         className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
                       >
                         <Plus className="w-5 h-5" />
-                        Enroll & Assign 1st Point
+                        Register Customer
                       </button>
                     </>
                   ) : !isRewardReady ? (

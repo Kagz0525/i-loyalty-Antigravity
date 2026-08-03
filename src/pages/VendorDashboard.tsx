@@ -66,6 +66,24 @@ export default function VendorDashboard() {
     }
   }, [searchParams, allCustomerCards, setSearchParams]);
 
+  // Auto-open Register Customer modal with pre-populated data from QR scan
+  useEffect(() => {
+    const shouldRegister = searchParams.get('registerCustomer');
+    if (shouldRegister === 'true') {
+      const name = searchParams.get('name') || '';
+      const email = searchParams.get('email') || '';
+      setNewCustomerName(name);
+      setNewCustomerEmail(email);
+      setNewCustomerPhone('');
+      setIsAddModalOpen(true);
+      // Clean params so it doesn't re-trigger
+      searchParams.delete('registerCustomer');
+      searchParams.delete('name');
+      searchParams.delete('email');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '');
     if (numbers.length <= 3) return numbers;
