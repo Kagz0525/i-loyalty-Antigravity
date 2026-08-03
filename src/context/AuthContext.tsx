@@ -25,13 +25,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_CACHE_KEY = 'iloyalty_cached_user';
+
+function getCachedUser(): User | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setCachedUser(u: User | null) {
+  try {
+    if (u) sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(u));
+    else sessionStorage.removeItem(SESSION_CACHE_KEY);
+  } catch { /* ignore */ }
+}
+
 // Track whether a profile fetch is already in progress so we don't double-fetch
 let fetchInProgress = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const currentUserId = useRef<string | null>(null);
+  // Instantly restore cached user so we never show a spinner on tab-return
+  const cached = getCachedUser();
+  const [user, setUserRaw] = useState<User | null>(cached);
+  const [loading, setLoading] = useState(!cached); // false if we have a cache
+  const currentUserId = useRef<string | null>(cached?.id || null);
+
+  // Wrapper that also persists to sessionStorage
+  const setUser = (u: User | null) => {
+    setCachedUser(u);
+    setUserRaw(u);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -52,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // ─── If we already loaded this exact user, skip re-fetching ──────────
       //     This prevents double-fetches when Supabase fires multiple events.
-      if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION' && currentUserId.current === session.user.id) {
+      if (currentUserId.current === session.user.id) {
         return;
       }
 
@@ -98,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     currentUserId.current = null;
+    setCachedUser(null);
     await supabase.auth.signOut();
     setUser(null);
   };

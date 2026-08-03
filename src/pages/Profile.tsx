@@ -23,24 +23,37 @@ export default function Profile() {
   const [tempMaxPoints, setTempMaxPoints] = useState(user?.maxPoints || 5);
 
   // Step 2 Settings
-  const [minSpend, setMinSpend] = useState(0);
-  const [noMinSpend, setNoMinSpend] = useState(true);
-  const [tempMinSpend, setTempMinSpend] = useState(0);
-  const [tempNoMinSpend, setTempNoMinSpend] = useState(true);
+  const [minSpend, setMinSpend] = useState(() => Number(localStorage.getItem('vendor_minSpend')) || 0);
+  const [noMinSpend, setNoMinSpend] = useState(() => {
+    const val = localStorage.getItem('vendor_noMinSpend');
+    return val === null ? true : val === 'true';
+  });
+  const [tempMinSpend, setTempMinSpend] = useState(minSpend);
+  const [tempNoMinSpend, setTempNoMinSpend] = useState(noMinSpend);
 
   // Step 3 Settings
-  const [rewardType, setRewardType] = useState<'free' | 'discount'>('free');
-  const [tempRewardType, setTempRewardType] = useState<'free' | 'discount'>('free');
-  const [rewardItem, setRewardItem] = useState('');
-  const [tempRewardItem, setTempRewardItem] = useState('');
-  const [discountPercentage, setDiscountPercentage] = useState(10);
-  const [tempDiscountPercentage, setTempDiscountPercentage] = useState(10);
+  const [rewardType, setRewardType] = useState<'free' | 'discount'>(() => (localStorage.getItem('vendor_rewardType') as 'free' | 'discount') || 'free');
+  const [tempRewardType, setTempRewardType] = useState<'free' | 'discount'>(rewardType);
+  const [rewardItem, setRewardItem] = useState(() => localStorage.getItem('vendor_rewardItem') || '');
+  const [tempRewardItem, setTempRewardItem] = useState(rewardItem);
+  const [discountPercentage, setDiscountPercentage] = useState(() => Number(localStorage.getItem('vendor_discountPercentage')) || 10);
+  const [tempDiscountPercentage, setTempDiscountPercentage] = useState(discountPercentage);
 
   // Step 4 Settings
-  const [hasExpiration, setHasExpiration] = useState(false);
-  const [tempHasExpiration, setTempHasExpiration] = useState(false);
-  const [expirationDate, setExpirationDate] = useState(new Date().toISOString().split('T')[0]);
-  const [tempExpirationDate, setTempExpirationDate] = useState(new Date().toISOString().split('T')[0]);
+  const [hasExpiration, setHasExpiration] = useState(() => localStorage.getItem('vendor_hasExpiration') === 'true');
+  const [tempHasExpiration, setTempHasExpiration] = useState(hasExpiration);
+  const [expirationDate, setExpirationDate] = useState(() => localStorage.getItem('vendor_expirationDate') || new Date().toISOString().split('T')[0]);
+  const [tempExpirationDate, setTempExpirationDate] = useState(expirationDate);
+
+  React.useEffect(() => {
+    localStorage.setItem('vendor_minSpend', minSpend.toString());
+    localStorage.setItem('vendor_noMinSpend', noMinSpend.toString());
+    localStorage.setItem('vendor_rewardType', rewardType);
+    localStorage.setItem('vendor_rewardItem', rewardItem);
+    localStorage.setItem('vendor_discountPercentage', discountPercentage.toString());
+    localStorage.setItem('vendor_hasExpiration', hasExpiration.toString());
+    localStorage.setItem('vendor_expirationDate', expirationDate);
+  }, [minSpend, noMinSpend, rewardType, rewardItem, discountPercentage, hasExpiration, expirationDate]);
 
   // Wizard State
   const [isWizardMode, setIsWizardMode] = useState(false);
@@ -163,7 +176,7 @@ export default function Profile() {
     );
   };
 
-  const tcSummary = `${noMinSpend ? 'Without any minimum spend' : `After spending R${minSpend}`}, your customer will be eligible for a ${rewardType === 'discount' ? `${discountPercentage}% discount on ${rewardItem || 'a service/product'}` : `free ${rewardItem || 'service/product'}`} after reaching their loyalty goal of ${maxPoints} points.${hasExpiration ? ` Rewards expire on ${expirationDate}.` : ''}`;
+  const tcSummary = `${noMinSpend ? 'Your customer earns 1 point per visit. ' : `When a customer spends R${minSpend} or more, they earn 1 point. `}After collecting ${maxPoints} points, they will receive a ${rewardType === 'discount' ? `${discountPercentage}% discount on ${rewardItem || 'a service/product'}` : `free ${rewardItem || 'service/product'}`}.${hasExpiration ? ` Rewards expire on ${expirationDate}.` : ''}`;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -564,7 +577,7 @@ export default function Profile() {
                           type="number"
                           min="0"
                           disabled={tempNoMinSpend}
-                          value={tempNoMinSpend ? 0 : tempMinSpend}
+                          value={tempNoMinSpend ? '' : (tempMinSpend === 0 ? '' : tempMinSpend)}
                           onChange={(e) => setTempMinSpend(parseFloat(e.target.value) || 0)}
                           className="block w-full pl-7 pr-12 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
                           placeholder="0.00"

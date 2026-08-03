@@ -41,7 +41,7 @@ interface DataContextType {
   customers: Customer[];
   loyaltyRecords: LoyaltyRecord[];
   pointHistory: PointHistory[];
-  addCustomer: (customer: Customer, vendorId: string, maxPoints: number) => void;
+  addCustomer: (customer: Customer, vendorId: string, maxPoints: number) => Promise<string | undefined>;
   removeCustomer: (recordId: string) => void;
   addPoint: (recordId: string, date?: string) => void;
   removePoint: (historyId: string, recordId: string) => void;
@@ -211,7 +211,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
    *    When that customer eventually signs up, they'll see the record because we also
    *    check email matching on sign-up (handled in addCustomer's upsert logic).
    */
-  const addCustomer = async (customer: Customer, vendorId: string, maxPoints: number) => {
+  const addCustomer = async (customer: Customer, vendorId: string, maxPoints: number): Promise<string | undefined> => {
     // Step 1: Look up whether this email already has a profile (registered user)
     // Uses an RPC function that has SECURITY DEFINER to bypass RLS,
     // so the vendor can find the customer's real auth UUID.
@@ -274,7 +274,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (existingRecord) {
       // Already enrolled — don't create a duplicate
       console.warn('[DataContext] Customer already enrolled with this vendor.');
-      return;
+      return existingRecord.id;
     }
 
     // Step 3: Create the loyalty record
@@ -292,7 +292,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if (recordError || !newRecord) {
       console.error('[DataContext] Failed to insert loyalty record:', recordError);
-      return;
+      return undefined;
     }
 
     // Step 4: Update local state
@@ -313,6 +313,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         rewardCode: newRecord.reward_code,
       },
     ]);
+
+    return newRecord.id;
   };
 
   const removeCustomer = async (recordId: string) => {

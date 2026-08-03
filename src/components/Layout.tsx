@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -21,9 +21,17 @@ export default function Layout() {
   const [scanNotFound, setScanNotFound] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user, logout } = useAuth();
-  const { customers, loyaltyRecords } = useData();
+  const { customers, loyaltyRecords, addCustomer, addPoint } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ── Refs to avoid stale closures in QR scanner callback ─────────────────
+  const customersRef = useRef(customers);
+  const loyaltyRecordsRef = useRef(loyaltyRecords);
+  const userRef = useRef(user);
+  useEffect(() => { customersRef.current = customers; }, [customers]);
+  useEffect(() => { loyaltyRecordsRef.current = loyaltyRecords; }, [loyaltyRecords]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -59,12 +67,17 @@ export default function Layout() {
     }
   };
 
-  const handleScanSuccess = useCallback(async (decodedText: string) => {
+  // The actual scan handler reads from refs so it always has current data
+  const handleScanSuccessImpl = useCallback(async (decodedText: string) => {
     setIsScannerOpen(false);
     setScanNotFound(false);
     setScannedCustomer(null);
     setScannedRecord(null);
     setIsScanResultOpen(true);
+
+    const currentCustomers = customersRef.current;
+    const currentRecords = loyaltyRecordsRef.current;
+    const currentUser = userRef.current;
 
     const scannedText = decodedText.trim();
     let customerId = '';
@@ -91,17 +104,15 @@ export default function Layout() {
     }
 
     // Step 1: Check local state by ID first (fastest path)
-    let localRecord = loyaltyRecords.find(r => r.customerId === customerId);
-    let localCustomer = customers.find(c => c.id === customerId);
+    let localRecord = currentRecords.find(r => r.customerId === customerId);
+    let localCustomer = currentCustomers.find(c => c.id === customerId);
 
     // Step 1b: If not found by ID, try matching by EMAIL in local state
-    // This handles the case where the customer was added before signing up
-    // (legacy customer_id in loyalty_records ≠ auth UUID in QR code)
     if ((!localRecord || !localCustomer) && customerEmail) {
-      const emailCustomer = customers.find(c => c.email.toLowerCase() === customerEmail.toLowerCase());
+      const emailCustomer = currentCustomers.find(c => c.email.toLowerCase() === customerEmail.toLowerCase());
       if (emailCustomer) {
         localCustomer = emailCustomer;
-        localRecord = loyaltyRecords.find(r => r.customerId === emailCustomer.id);
+        localRecord = currentRecords.find(r => r.customerId === emailCustomer.id);
       }
     }
 
@@ -123,7 +134,7 @@ export default function Layout() {
         const { data: legacyRecord } = await supabase
           .from('loyalty_records')
           .select('*')
-          .eq('vendor_id', user?.id)
+          .eq('vendor_id', currentUser?.id)
           .eq('customer_id', legacyCustomer.id)
           .maybeSingle();
 
@@ -147,6 +158,44 @@ export default function Layout() {
           return;
         }
       }
+
+      // Step 2b: Also check profiles table (customer might have signed up but
+      // vendor hasn't enrolled them yet)
+      const { data: profileCustomer } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', customerEmail.toLowerCase().trim())
+        .maybeSingle();
+
+      if (profileCustomer) {
+        // Check if already enrolled with this vendor via profile ID
+        const { data: profileRecord } = await supabase
+          .from('loyalty_records')
+          .select('*')
+          .eq('vendor_id', currentUser?.id)
+          .eq('customer_id', profileCustomer.id)
+          .maybeSingle();
+
+        if (profileRecord) {
+          setScannedCustomer({
+            id: profileCustomer.id,
+            name: profileCustomer.name,
+            email: profileCustomer.email,
+            phone: profileCustomer.phone || '',
+            joinedDate: profileCustomer.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          });
+          setScannedRecord({
+            id: profileRecord.id,
+            vendorId: profileRecord.vendor_id,
+            customerId: profileRecord.customer_id,
+            points: profileRecord.points,
+            maxPoints: profileRecord.max_points,
+            visits: profileRecord.visits,
+            rewardCode: profileRecord.reward_code,
+          });
+          return;
+        }
+      }
     }
 
     // Step 3: Not found anywhere — show as new customer from QR data
@@ -160,7 +209,14 @@ export default function Layout() {
 
     setScannedCustomer(qrCustomer);
     setScannedRecord(null);
-  }, [loyaltyRecords, customers, user?.id]);
+  }, []); // No dependencies needed — reads from refs
+
+  // Stable ref-based wrapper for the QR scanner to always call the latest handler
+  const scanCallbackRef = useRef(handleScanSuccessImpl);
+  useEffect(() => { scanCallbackRef.current = handleScanSuccessImpl; }, [handleScanSuccessImpl]);
+  const handleScanSuccess = useCallback((decodedText: string) => {
+    scanCallbackRef.current(decodedText);
+  }, []);
 
   const handleEnrollAndAssign = async (date: string) => {
     if (!scannedCustomer || !user?.id) {
@@ -173,44 +229,26 @@ export default function Layout() {
     // Default max points to vendor's maxPoints setting, fallback to 5
     const maxPoints = (user as any).maxPoints || 5;
     
-    // 1. Create loyalty_records
-    const { data: newRecord, error: insertError } = await supabase
-      .from('loyalty_records')
-      .insert({
-        vendor_id: user.id,
-        customer_id: scannedCustomer.id,
-        points: 1,
-        max_points: maxPoints,
-        visits: 1
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      alert('Could not enroll customer: ' + insertError.message);
-      console.error('[Enroll] Insert error:', insertError);
-      return;
+    // Use the DataContext addCustomer flow which properly handles
+    // the foreign key constraint by checking profiles first,
+    // then falling back to the customers table.
+    const customerPayload: Customer = {
+      id: scannedCustomer.id,
+      name: scannedCustomer.name,
+      email: scannedCustomer.email,
+      phone: scannedCustomer.phone || '',
+      joinedDate: new Date().toISOString().split('T')[0],
+    };
+    
+    const recordId = await addCustomer(customerPayload, user.id, maxPoints);
+    
+    if (recordId) {
+      // Assign the first point with the selected date
+      await addPoint(recordId, new Date(date).toISOString());
     }
-
-    if (newRecord) {
-      // 2. Create point_history
-      const { error: historyError } = await supabase
-        .from('point_history')
-        .insert({
-          record_id: newRecord.id,
-          date: new Date(date).toISOString(),
-          type: 'earned'
-        });
-      
-      if (historyError) {
-        console.error('[Enroll] History insert error:', historyError);
-      }
-      
-      // 3. Reload to fetch fresh data
-      window.location.reload();
-    } else {
-      alert('Enrollment failed. No record was created. Please try again.');
-    }
+    
+    // Navigate to home to see the updated dashboard
+    navigate('/');
   };
 
   const handleGoToProfile = () => {
