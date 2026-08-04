@@ -125,6 +125,9 @@ export default function Layout() {
     }
 
     // Step 2: DB fallback — find the legacy customer by email
+    let foundProfileCustomer: any = null;
+    let foundLegacyCustomer: any = null;
+
     if (customerEmail) {
       const { data: legacyCustomer } = await supabase
         .from('customers')
@@ -133,6 +136,7 @@ export default function Layout() {
         .maybeSingle();
 
       if (legacyCustomer) {
+        foundLegacyCustomer = legacyCustomer;
         const { data: legacyRecord } = await supabase
           .from('loyalty_records')
           .select('*')
@@ -170,6 +174,7 @@ export default function Layout() {
         .maybeSingle();
 
       if (profileCustomer) {
+        foundProfileCustomer = profileCustomer;
         // Check if already enrolled with this vendor via profile ID
         const { data: profileRecord } = await supabase
           .from('loyalty_records')
@@ -201,11 +206,15 @@ export default function Layout() {
     }
 
     // Step 3: Not found anywhere — show as new customer from QR data
+    // Use DB profile phone/name as priority fallback if they signed up but aren't enrolled
+    const finalPhone = foundProfileCustomer?.phone || foundLegacyCustomer?.phone || customerPhone || '';
+    const finalName = foundProfileCustomer?.name || foundLegacyCustomer?.name || customerName || customerEmail || 'Customer';
+
     const qrCustomer: Customer = {
       id: customerId,
-      name: customerName || customerEmail || 'Customer',
+      name: finalName,
       email: customerEmail,
-      phone: customerPhone,
+      phone: finalPhone,
       joinedDate: new Date().toISOString().split('T')[0],
     };
 
