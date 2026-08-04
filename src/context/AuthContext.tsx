@@ -13,6 +13,13 @@ export interface User {
   profilePic?: string;
   planType?: 'Starter' | 'Pro';
   maxPoints?: number;
+  minSpend?: number;
+  noMinSpend?: boolean;
+  rewardType?: string;
+  rewardItem?: string;
+  discountPercentage?: number;
+  hasExpiration?: boolean;
+  expirationDate?: string;
 }
 
 interface AuthContextType {
@@ -106,6 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: (meta.role as UserRole) || 'customer',
           businessName: meta.business_name || undefined,
           maxPoints: meta.max_points ?? undefined,
+          minSpend: meta.min_spend ?? undefined,
+          noMinSpend: meta.no_min_spend ?? undefined,
+          rewardType: meta.reward_type ?? undefined,
+          rewardItem: meta.reward_item ?? undefined,
+          discountPercentage: meta.discount_percentage ?? undefined,
+          hasExpiration: meta.has_expiration ?? undefined,
+          expirationDate: meta.expiration_date ?? undefined,
         });
       } finally {
         fetchInProgress = false;
@@ -135,9 +149,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.businessName !== undefined) updates.business_name = data.businessName;
       if (data.planType !== undefined) updates.plan_type = data.planType;
       if (data.maxPoints !== undefined) updates.max_points = data.maxPoints;
+      if (data.minSpend !== undefined) updates.min_spend = data.minSpend;
+      if (data.noMinSpend !== undefined) updates.no_min_spend = data.noMinSpend;
+      if (data.rewardType !== undefined) updates.reward_type = data.rewardType;
+      if (data.rewardItem !== undefined) updates.reward_item = data.rewardItem;
+      if (data.discountPercentage !== undefined) updates.discount_percentage = data.discountPercentage;
+      if (data.hasExpiration !== undefined) updates.has_expiration = data.hasExpiration;
+      if (data.expirationDate !== undefined) updates.expiration_date = data.expirationDate;
       if (data.profilePic !== undefined) updates.profile_pic = data.profilePic;
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+      
+      // Update local auth metadata as well, so session restores these correctly
+      await supabase.auth.updateUser({ data: updates });
       if (!error) {
         setUser({ ...user, ...data });
       } else {

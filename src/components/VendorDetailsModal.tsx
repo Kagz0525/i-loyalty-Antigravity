@@ -34,11 +34,19 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
     return `${yyyy}/${mm}/${dd}`;
   };
 
-  const calculateActiveDays = (joinedDate: string) => {
-    const start = new Date(joinedDate);
+  // Find the joined date based on the very first point history entry for this record
+  const recordHistory = pointHistory.filter((h) => h.recordId === latestRecord.id);
+  const earliestPoint = recordHistory.length > 0 
+    ? recordHistory.reduce((earliest, current) => new Date(current.date) < new Date(earliest.date) ? current : earliest)
+    : null;
+  const joinedDate = earliestPoint ? earliestPoint.date.split('T')[0] : (customer?.joinedDate || null);
+
+  const calculateActiveDays = (dateStr: string | null) => {
+    if (!dateStr) return 0;
+    const start = new Date(dateStr);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const handleRemoveVendor = () => {
@@ -117,15 +125,39 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
                 <hr className="border-gray-300" />
               </div>
 
-              <div className="p-6 sm:p-8 py-6 space-y-4">
-                <div className="text-sm text-gray-900 font-medium">
-                  Joined Date: {customer?.joinedDate ? customer.joinedDate.replace(/-/g, '/') : 'N/A'}
+              <div className="p-6 sm:p-8 py-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-900 font-medium">
+                    Joined Date: {joinedDate ? joinedDate.replace(/-/g, '/') : 'N/A'}
+                  </div>
+                  <div className="text-sm text-gray-900 font-medium">
+                    Visits Since Inception: {latestRecord.visits}
+                  </div>
+                  <div className="text-sm text-gray-900 font-medium">
+                    Active {calculateActiveDays(joinedDate)} Day(s)
+                  </div>
                 </div>
-                <div className="text-sm text-gray-900 font-medium">
-                  Visits Since Inception: {latestRecord.visits}
-                </div>
-                <div className="text-sm text-gray-900 font-medium">
-                  Active {customer?.joinedDate ? calculateActiveDays(customer.joinedDate) : 0} Day(s)
+                
+                <div className="pt-4 border-t border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">Terms & Conditions</h3>
+                  <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                    <li>
+                      <strong>Points required for freebie:</strong> {vendor.maxPoints || latestRecord.maxPoints}
+                    </li>
+                    <li>
+                      <strong>Minimum spend required:</strong> {vendor.noMinSpend ? 'No minimum spend' : `R${vendor.minSpend || 0}`}
+                    </li>
+                    {vendor.hasExpiration && vendor.expirationDate && (
+                      <li>
+                        <strong>Expiry date:</strong> {vendor.expirationDate.replace(/-/g, '/')}
+                      </li>
+                    )}
+                    <li>
+                      <strong>Type of freebie:</strong> {vendor.rewardType === 'discount' 
+                        ? `${vendor.discountPercentage || 10}% discount on ${vendor.rewardItem || 'a service/product'}`
+                        : `Free ${vendor.rewardItem || 'service/product'}`}
+                    </li>
+                  </ul>
                 </div>
               </div>
 

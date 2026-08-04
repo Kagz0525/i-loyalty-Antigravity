@@ -23,37 +23,24 @@ export default function Profile() {
   const [tempMaxPoints, setTempMaxPoints] = useState(user?.maxPoints || 5);
 
   // Step 2 Settings
-  const [minSpend, setMinSpend] = useState(() => Number(localStorage.getItem('vendor_minSpend')) || 0);
-  const [noMinSpend, setNoMinSpend] = useState(() => {
-    const val = localStorage.getItem('vendor_noMinSpend');
-    return val === null ? true : val === 'true';
-  });
+  const [minSpend, setMinSpend] = useState(user?.minSpend || 0);
+  const [noMinSpend, setNoMinSpend] = useState(user?.noMinSpend ?? true);
   const [tempMinSpend, setTempMinSpend] = useState(minSpend);
   const [tempNoMinSpend, setTempNoMinSpend] = useState(noMinSpend);
 
   // Step 3 Settings
-  const [rewardType, setRewardType] = useState<'free' | 'discount'>(() => (localStorage.getItem('vendor_rewardType') as 'free' | 'discount') || 'free');
+  const [rewardType, setRewardType] = useState<'free' | 'discount'>((user?.rewardType as 'free' | 'discount') || 'free');
   const [tempRewardType, setTempRewardType] = useState<'free' | 'discount'>(rewardType);
-  const [rewardItem, setRewardItem] = useState(() => localStorage.getItem('vendor_rewardItem') || '');
+  const [rewardItem, setRewardItem] = useState(user?.rewardItem || '');
   const [tempRewardItem, setTempRewardItem] = useState(rewardItem);
-  const [discountPercentage, setDiscountPercentage] = useState(() => Number(localStorage.getItem('vendor_discountPercentage')) || 10);
+  const [discountPercentage, setDiscountPercentage] = useState(user?.discountPercentage || 10);
   const [tempDiscountPercentage, setTempDiscountPercentage] = useState(discountPercentage);
 
   // Step 4 Settings
-  const [hasExpiration, setHasExpiration] = useState(() => localStorage.getItem('vendor_hasExpiration') === 'true');
+  const [hasExpiration, setHasExpiration] = useState(user?.hasExpiration ?? false);
   const [tempHasExpiration, setTempHasExpiration] = useState(hasExpiration);
-  const [expirationDate, setExpirationDate] = useState(() => localStorage.getItem('vendor_expirationDate') || new Date().toISOString().split('T')[0]);
+  const [expirationDate, setExpirationDate] = useState(user?.expirationDate || new Date().toISOString().split('T')[0]);
   const [tempExpirationDate, setTempExpirationDate] = useState(expirationDate);
-
-  React.useEffect(() => {
-    localStorage.setItem('vendor_minSpend', minSpend.toString());
-    localStorage.setItem('vendor_noMinSpend', noMinSpend.toString());
-    localStorage.setItem('vendor_rewardType', rewardType);
-    localStorage.setItem('vendor_rewardItem', rewardItem);
-    localStorage.setItem('vendor_discountPercentage', discountPercentage.toString());
-    localStorage.setItem('vendor_hasExpiration', hasExpiration.toString());
-    localStorage.setItem('vendor_expirationDate', expirationDate);
-  }, [minSpend, noMinSpend, rewardType, rewardItem, discountPercentage, hasExpiration, expirationDate]);
 
   // Wizard State
   const [isWizardMode, setIsWizardMode] = useState(false);
@@ -535,7 +522,7 @@ export default function Profile() {
                           setIsDirectEdit(false);
                           setModalView('main');
                         } else {
-                          setModalView('main');
+                          setModalView('step2');
                         }
                       }}
                       className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium text-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -602,14 +589,15 @@ export default function Profile() {
                   {!isWizardMode && (tempMinSpend !== minSpend || tempNoMinSpend !== noMinSpend) && (
                     <button
                       onClick={() => {
-                        setMinSpend(tempNoMinSpend ? 0 : tempMinSpend);
+                        setMinSpend(tempMinSpend);
                         setNoMinSpend(tempNoMinSpend);
+                        updateUser({ minSpend: tempMinSpend, noMinSpend: tempNoMinSpend });
                         if (isDirectEdit) {
                           setIsSetupModalOpen(false);
                           setIsDirectEdit(false);
                           setModalView('main');
                         } else {
-                          setModalView('main');
+                          setModalView('step3');
                         }
                       }}
                       className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium text-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -699,6 +687,7 @@ export default function Profile() {
                         setRewardType(tempRewardType);
                         setRewardItem(tempRewardItem);
                         setDiscountPercentage(tempDiscountPercentage);
+                        updateUser({ rewardType: tempRewardType, rewardItem: tempRewardItem, discountPercentage: tempDiscountPercentage });
                         if (isDirectEdit) {
                           setIsSetupModalOpen(false);
                           setIsDirectEdit(false);
@@ -781,12 +770,14 @@ export default function Profile() {
                       onClick={() => {
                         setHasExpiration(tempHasExpiration);
                         setExpirationDate(tempExpirationDate);
+                        updateUser({ hasExpiration: tempHasExpiration, expirationDate: tempExpirationDate });
                         if (isDirectEdit) {
                           setIsSetupModalOpen(false);
                           setIsDirectEdit(false);
                           setModalView('main');
                         } else {
                           setModalView('main');
+                          setIsSetupModalOpen(false);
                         }
                       }}
                       className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium text-lg hover:bg-blue-700 transition-colors shadow-sm"

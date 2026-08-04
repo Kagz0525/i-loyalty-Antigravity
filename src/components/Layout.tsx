@@ -264,7 +264,13 @@ export default function Layout() {
               </button>
             </div>
             <h1
-              onClick={() => navigate('/profile')}
+              onClick={() => {
+                if (location.pathname === '/') {
+                  navigate('/profile');
+                } else {
+                  navigate('/');
+                }
+              }}
               className="text-sm font-semibold text-orange-600 tracking-tight cursor-pointer hover:text-orange-800 transition-colors"
             >
               Welcome, {user?.role === 'vendor' ? (user?.businessName || user?.name || 'Guest') : (user?.name || 'Guest')}

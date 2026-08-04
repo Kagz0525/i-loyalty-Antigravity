@@ -8,6 +8,14 @@ export interface Vendor {
   email: string;
   businessName: string;
   phone?: string;
+  maxPoints?: number;
+  minSpend?: number;
+  noMinSpend?: boolean;
+  rewardType?: string;
+  rewardItem?: string;
+  discountPercentage?: number;
+  hasExpiration?: boolean;
+  expirationDate?: string;
 }
 
 export interface Customer {
@@ -85,6 +93,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         email: v.email,
         businessName: v.business_name || v.name,
         phone: v.phone,
+        maxPoints: v.max_points,
+        minSpend: v.min_spend,
+        noMinSpend: v.no_min_spend,
+        rewardType: v.reward_type,
+        rewardItem: v.reward_item,
+        discountPercentage: v.discount_percentage,
+        hasExpiration: v.has_expiration,
+        expirationDate: v.expiration_date,
       })));
     }
 
