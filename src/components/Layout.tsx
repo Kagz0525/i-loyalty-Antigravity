@@ -83,6 +83,7 @@ export default function Layout() {
     let customerId = '';
     let customerEmail = '';
     let customerName = '';
+    let customerPhone = '';
 
     // Parse QR code payload
     try {
@@ -90,6 +91,7 @@ export default function Layout() {
       customerId = parsed.id || '';
       customerEmail = parsed.email || '';
       customerName = parsed.name || '';
+      customerPhone = parsed.phone || '';
     } catch {
       // Old format: plain UUID string
       customerId = scannedText;
@@ -203,7 +205,7 @@ export default function Layout() {
       id: customerId,
       name: customerName || customerEmail || 'Customer',
       email: customerEmail,
-      phone: '',
+      phone: customerPhone,
       joinedDate: new Date().toISOString().split('T')[0],
     };
 
@@ -426,6 +428,7 @@ export default function Layout() {
           userId={user.id}
           userEmail={user.email || ''}
           userName={user.businessName || user.name || 'User'}
+          userPhone={user.phone || ''}
         />
       )}
 
