@@ -20,6 +20,7 @@ export interface User {
   discountPercentage?: number;
   hasExpiration?: boolean;
   expirationDate?: string;
+  authProvider?: string;
 }
 
 interface AuthContextType {
@@ -120,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           discountPercentage: meta.discount_percentage ?? undefined,
           hasExpiration: meta.has_expiration ?? undefined,
           expirationDate: meta.expiration_date ?? undefined,
+          authProvider: session.user.app_metadata?.provider || 'email',
         });
       } finally {
         fetchInProgress = false;
@@ -208,6 +210,7 @@ async function fetchAndSyncProfile(
 ): Promise<void> {
   const userId = sessionUser.id;
   const email = sessionUser.email || '';
+  const authProvider = sessionUser.app_metadata?.provider || 'email';
   
   // 1. Read pre-auth localStorage data (set before Google OAuth redirect)
   const savedRole = localStorage.getItem('signup_role') as UserRole | null;
@@ -309,6 +312,7 @@ async function fetchAndSyncProfile(
       planType: p.plan_type,
       maxPoints: p.max_points ?? undefined,
       profilePic: p.profile_pic || undefined,
+      authProvider,
     });
   } else {
     // Fallback if DB completely failed
@@ -316,6 +320,7 @@ async function fetchAndSyncProfile(
       id: userId, email, name: resolvedName, role: resolvedRole,
       businessName: resolvedBusinessName || undefined,
       maxPoints: resolvedMaxPoints || undefined,
+      authProvider,
     });
   }
 }

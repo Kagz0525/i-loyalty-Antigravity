@@ -304,18 +304,20 @@ export default function Profile() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Settings</h3>
                 )}
                 <div className="space-y-2">
-                  <div 
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-100"
-                    onClick={() => setIsPasswordModalOpen(true)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                        <Lock className="w-4 h-4" />
+                  {user?.authProvider !== 'google' && (
+                    <div 
+                      className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-100"
+                      onClick={() => setIsPasswordModalOpen(true)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">Change Password</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-700">Change Password</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  </div>
+                  )}
 
                   <div 
                     className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-100"
