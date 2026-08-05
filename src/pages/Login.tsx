@@ -323,11 +323,7 @@ export default function Login() {
         autoComplete="current-password"
       />
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" className="h-4 w-4 text-orange-600 border-gray-300 rounded" />
-          Remember me
-        </label>
+      <div className="flex items-center justify-end">
         <a href="#" className="text-sm font-medium text-orange-600 hover:text-orange-500">Forgot your password?</a>
       </div>
 
