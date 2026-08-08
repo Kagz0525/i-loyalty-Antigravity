@@ -215,10 +215,12 @@ export default function Login() {
     setIsVerifying(false); setOtpCode('');
   }, []);
 
-  // Navigate as soon as AuthContext resolves the user
+  // Navigate as soon as AuthContext resolves the user, EXCEPT during password reset
   useEffect(() => {
-    if (user) navigate('/', { replace: true });
-  }, [user, navigate]);
+    if (user && authMode !== 'update-password' && authMode !== 'forgot-password-verify') {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate, authMode]);
 
   // Safety net: if submitting for >15s with no navigation, unfreeze the button
   useEffect(() => {
@@ -586,7 +588,8 @@ export default function Login() {
           </svg>
         </div>
         <p className="text-sm text-gray-600 mb-2">We sent a verification code to <span className="font-semibold text-gray-900">{email}</span>.</p>
-        <p className="text-xs text-gray-500">Please enter it below to confirm your account.</p>
+        <p className="text-xs text-gray-500 mb-1">Please enter it below to confirm your account.</p>
+        <p className="text-xs font-semibold text-orange-600">If you don't see it, please check your spam folder.</p>
       </div>
 
       <div>
@@ -632,6 +635,7 @@ export default function Login() {
     <form className="space-y-5" onSubmit={handleVerifyResetOtp}>
       <div className="text-center">
         <p className="text-sm text-gray-600 mb-2">We sent a reset code to <span className="font-semibold text-gray-900">{email}</span>.</p>
+        <p className="text-xs font-semibold text-orange-600">If you don't see it, please check your spam folder.</p>
       </div>
       <div>
         <label htmlFor="reset-otp" className="block text-sm font-medium text-gray-700 mb-1">6-digit Code</label>
