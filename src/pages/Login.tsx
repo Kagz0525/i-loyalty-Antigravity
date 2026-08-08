@@ -183,7 +183,7 @@ function ErrorMessage({ message }: { message: string }) {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AuthMode = 'sign-in' | 'sign-up';
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'forgot-password-verify' | 'update-password';
 type SignUpStep = 'role' | 'details';
 
 // ─── Main Login component ─────────────────────────────────────────────────────
@@ -320,6 +320,62 @@ export default function Login() {
     // and useEffect(user) will navigate on success
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+    if (error) {
+      setError(error.message);
+      setSubmitting(false);
+    } else {
+      setSubmitting(false);
+      setAuthMode('forgot-password-verify');
+    }
+  };
+
+  const handleVerifyResetOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: 'recovery'
+    });
+
+    if (error) {
+      setError(error.message);
+      setSubmitting(false);
+    } else {
+      setSubmitting(false);
+      setAuthMode('update-password');
+      setOtpCode('');
+      setPassword('');
+      setConfirmPassword('');
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirmPassword) { setError("Passwords don't match."); return; }
+    
+    setSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      setError(error.message);
+      setSubmitting(false);
+    } else {
+      setSubmitting(false);
+      navigate('/', { replace: true });
+    }
+  };
+
   const handleGoogleAuth = async () => {
     setError(null);
     setSubmitting(true);
@@ -352,7 +408,7 @@ export default function Login() {
       />
 
       <div className="flex items-center justify-end">
-        <a href="#" className="text-sm font-medium text-orange-600 hover:text-orange-500">Forgot your password?</a>
+        <button type="button" onClick={() => switchMode('forgot-password')} className="text-sm font-medium text-orange-600 hover:text-orange-500 focus:outline-none">Forgot your password?</button>
       </div>
 
       {error && <ErrorMessage message={error} />}
@@ -555,6 +611,65 @@ export default function Login() {
     </form>
   );
 
+  const renderForgotPassword = () => (
+    <form className="space-y-5" onSubmit={handleForgotPassword}>
+      <p className="text-sm text-gray-600 text-center">
+        Enter your email address and we'll send you a 6-digit code to reset your password.
+      </p>
+      <div>
+        <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+        <ComboEmailInput id="reset-email" value={email} onChange={setEmail} placeholder="you@example.com" />
+      </div>
+      {error && <ErrorMessage message={error} />}
+      <button type="submit" disabled={submitting || !email}
+        className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
+        {submitting ? 'Sending code…' : 'Send Reset Code'}
+      </button>
+    </form>
+  );
+
+  const renderForgotPasswordVerify = () => (
+    <form className="space-y-5" onSubmit={handleVerifyResetOtp}>
+      <div className="text-center">
+        <p className="text-sm text-gray-600 mb-2">We sent a reset code to <span className="font-semibold text-gray-900">{email}</span>.</p>
+      </div>
+      <div>
+        <label htmlFor="reset-otp" className="block text-sm font-medium text-gray-700 mb-1">6-digit Code</label>
+        <input id="reset-otp" type="text" required value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+          maxLength={6}
+          className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 sm:text-lg text-center tracking-widest font-mono"
+          placeholder="000000" />
+      </div>
+      {error && <ErrorMessage message={error} />}
+      <button type="submit" disabled={submitting || otpCode.length < 6}
+        className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
+        {submitting ? 'Verifying…' : 'Verify Code'}
+      </button>
+      <button type="button" onClick={() => switchMode('forgot-password')} disabled={submitting}
+        className="w-full mt-2 flex justify-center py-2 px-4 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+        Back
+      </button>
+    </form>
+  );
+
+  const renderUpdatePassword = () => (
+    <form className="space-y-5" onSubmit={handleUpdatePassword}>
+      <PasswordField id="new-password" label="New Password"
+        value={password} onChange={setPassword}
+        show={showPassword} onToggleShow={() => setShowPassword(p => !p)}
+        autoComplete="new-password" />
+      <PasswordField id="new-confirm" label="Confirm New Password"
+        value={confirmPassword} onChange={setConfirmPassword}
+        show={showConfirm} onToggleShow={() => setShowConfirm(p => !p)}
+        autoComplete="new-password" />
+      {error && <ErrorMessage message={error} />}
+      <button type="submit" disabled={submitting || !password}
+        className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
+        {submitting ? 'Updating…' : 'Update Password'}
+      </button>
+    </form>
+  );
+
   // ─── Main render ──────────────────────────────────────────────────────────
   const isSignUp = authMode === 'sign-up';
 
@@ -567,14 +682,19 @@ export default function Login() {
           <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-gray-900">
-                {isVerifying ? 'Check your email' : (isSignUp ? 'Create an account' : 'Welcome back')}
+                {isVerifying ? 'Check your email' :
+                 authMode === 'forgot-password' ? 'Reset password' :
+                 authMode === 'forgot-password-verify' ? 'Check your email' :
+                 authMode === 'update-password' ? 'New password' :
+                 (isSignUp ? 'Create an account' : 'Welcome back')}
               </h2>
-              {!isVerifying && (
+              {!isVerifying && authMode !== 'forgot-password-verify' && authMode !== 'update-password' && (
                 <p className="mt-2 text-sm text-gray-600">
-                  {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                  <button onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
+                  {authMode === 'forgot-password' ? 'Remembered it? ' :
+                   isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                  <button onClick={() => switchMode(authMode === 'forgot-password' ? 'sign-in' : isSignUp ? 'sign-in' : 'sign-up')}
                     className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
-                    {isSignUp ? 'Sign in' : 'Sign up'}
+                    {authMode === 'forgot-password' ? 'Back to sign in' : isSignUp ? 'Sign in' : 'Sign up'}
                   </button>
                 </p>
               )}
@@ -594,6 +714,12 @@ export default function Login() {
 
             {isVerifying ? (
               renderVerification()
+            ) : authMode === 'forgot-password' ? (
+              renderForgotPassword()
+            ) : authMode === 'forgot-password-verify' ? (
+              renderForgotPasswordVerify()
+            ) : authMode === 'update-password' ? (
+              renderUpdatePassword()
             ) : (
               <>
                 {!isSignUp && renderSignIn()}
