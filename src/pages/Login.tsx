@@ -205,11 +205,14 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [viewingLegal, setViewingLegal] = useState<LegalType | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
   const resetForm = useCallback(() => {
     setEmail(''); setPassword(''); setConfirmPassword('');
     setFullName(''); setMaxPoints(3); setRole('customer');
     setSignUpStep('role'); setError(null); setSubmitting(false);
+    setIsVerifying(false); setOtpCode('');
   }, []);
 
   // Navigate as soon as AuthContext resolves the user
@@ -267,10 +270,35 @@ export default function Login() {
 
     if (data.user) {
       saveEmail(email);
-      // submitting stays true — useEffect will navigate once AuthContext loads the user
+      if (data.session) {
+        // submitting stays true — useEffect will navigate once AuthContext loads the user
+      } else {
+        setIsVerifying(true);
+        setSubmitting(false);
+      }
     } else {
       setError('Signup failed. Please try again.');
       setSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: 'signup'
+    });
+
+    if (verifyError) {
+      setError(verifyError.message);
+      setSubmitting(false);
+    } else {
+      // Success! The session is created automatically by Supabase.
+      // The `useEffect` will handle navigation.
     }
   };
 
@@ -493,6 +521,40 @@ export default function Login() {
     );
   };
 
+  const renderVerification = () => (
+    <form className="space-y-5" onSubmit={handleVerifyOtp}>
+      <div className="text-center">
+        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
+          <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <p className="text-sm text-gray-600 mb-2">We sent a verification code to <span className="font-semibold text-gray-900">{email}</span>.</p>
+        <p className="text-xs text-gray-500">Please enter it below to confirm your account.</p>
+      </div>
+
+      <div>
+        <label htmlFor="otp-code" className="block text-sm font-medium text-gray-700 mb-1">6-digit Code</label>
+        <input id="otp-code" type="text" required value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+          maxLength={6}
+          className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 sm:text-lg text-center tracking-widest font-mono"
+          placeholder="000000" />
+      </div>
+
+      {error && <ErrorMessage message={error} />}
+
+      <button type="submit" disabled={submitting || otpCode.length < 6}
+        className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
+        {submitting ? 'Verifying…' : 'Verify Account'}
+      </button>
+
+      <button type="button" onClick={() => { setIsVerifying(false); setError(null); }} disabled={submitting}
+        className="w-full mt-2 flex justify-center py-2 px-4 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+        Back
+      </button>
+    </form>
+  );
+
   // ─── Main render ──────────────────────────────────────────────────────────
   const isSignUp = authMode === 'sign-up';
 
@@ -505,18 +567,20 @@ export default function Login() {
           <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-gray-900">
-                {isSignUp ? 'Create an account' : 'Welcome back'}
+                {isVerifying ? 'Check your email' : (isSignUp ? 'Create an account' : 'Welcome back')}
               </h2>
-              <p className="mt-2 text-sm text-gray-600">
-                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                <button onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
-                  className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
-                  {isSignUp ? 'Sign in' : 'Sign up'}
-                </button>
-              </p>
+              {!isVerifying && (
+                <p className="mt-2 text-sm text-gray-600">
+                  {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                  <button onClick={() => switchMode(isSignUp ? 'sign-in' : 'sign-up')}
+                    className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
+                    {isSignUp ? 'Sign in' : 'Sign up'}
+                  </button>
+                </p>
+              )}
             </div>
 
-            {isSignUp && signUpStep === 'details' && (
+            {isSignUp && signUpStep === 'details' && !isVerifying && (
               <div className="flex items-center gap-3">
                 <button type="button" onClick={() => { setSignUpStep('role'); setError(null); }}
                   className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
@@ -528,10 +592,16 @@ export default function Login() {
               </div>
             )}
 
-            {!isSignUp && renderSignIn()}
-            {isSignUp && signUpStep === 'role' && renderRoleSelector()}
-            {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}
-            {isSignUp && signUpStep === 'details' && role === 'vendor' && renderVendorDetails()}
+            {isVerifying ? (
+              renderVerification()
+            ) : (
+              <>
+                {!isSignUp && renderSignIn()}
+                {isSignUp && signUpStep === 'role' && renderRoleSelector()}
+                {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}
+                {isSignUp && signUpStep === 'details' && role === 'vendor' && renderVendorDetails()}
+              </>
+            )}
           </div>
           
           <div className="mt-8 flex items-center gap-2 text-xs text-gray-400">
