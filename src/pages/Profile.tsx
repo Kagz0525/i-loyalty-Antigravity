@@ -59,8 +59,11 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [phoneInput, setPhoneInput] = useState(user?.phone || '');
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'legal'>('profile');
   const [deleteEmailInput, setDeleteEmailInput] = useState('');
   const { logout } = useAuth();
 
@@ -851,6 +854,11 @@ export default function Profile() {
                 <X className="w-6 h-6" />
               </button>
               <h2 className="text-xl font-bold text-gray-900 mb-6">Change Password</h2>
+              {passwordError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center">
+                  <span className="font-semibold">{passwordError}</span>
+                </div>
+              )}
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
@@ -909,21 +917,45 @@ export default function Profile() {
               </div>
               <button
                 onClick={async () => {
+                  setPasswordError(null);
+                  if (newPassword !== confirmPassword) {
+                    setPasswordError("New passwords do not match.");
+                    return;
+                  }
+                  setIsUpdatingPassword(true);
+                  
+                  // Verify current password first
+                  const { error: signInError } = await supabase.auth.signInWithPassword({
+                    email: user?.email || '',
+                    password: currentPassword
+                  });
+
+                  if (signInError) {
+                    setPasswordError("Incorrect current password.");
+                    setIsUpdatingPassword(false);
+                    return;
+                  }
+
+                  // If correct, update to new password
                   const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  
+                  setIsUpdatingPassword(false);
+                  
                   if (error) {
-                    alert('Error updating password: ' + error.message);
+                    setPasswordError(error.message);
                   } else {
                     alert('Password updated successfully!');
                     setIsPasswordModalOpen(false);
                     setCurrentPassword('');
                     setNewPassword('');
                     setConfirmPassword('');
+                    setPasswordError(null);
                   }
                 }}
-                disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
-                className="w-full py-3 px-4 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isUpdatingPassword || !currentPassword || !newPassword || !confirmPassword}
+                className="w-full py-3 px-4 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
               >
-                Update Password
+                {isUpdatingPassword ? 'Updating...' : 'Update Password'}
               </button>
             </motion.div>
           </div>
