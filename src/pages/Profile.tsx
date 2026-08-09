@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 import { UserCircle2, Save, Edit2, Camera, X, ArrowLeft, Calendar, Star, CreditCard, Gift, Handshake, Lock, Phone, Zap, Trash2, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PlanModal from '../components/PlanModal';
@@ -7,6 +8,7 @@ import { supabase } from '../supabaseClient';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
+  const { updateVendorMaxPoints } = useData();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [businessName, setBusinessName] = useState(user?.businessName || '');
@@ -522,6 +524,7 @@ export default function Profile() {
                       onClick={() => {
                         setMaxPoints(tempMaxPoints);
                         updateUser({ maxPoints: tempMaxPoints });
+                        updateVendorMaxPoints(tempMaxPoints);
                         if (isDirectEdit) {
                           setIsSetupModalOpen(false);
                           setIsDirectEdit(false);
@@ -818,6 +821,7 @@ export default function Profile() {
                         setIsWizardMode(false); 
                         setModalView('main'); 
                         updateUser({ maxPoints: tempMaxPoints });
+                        updateVendorMaxPoints(tempMaxPoints);
                       }
                     }}
                     className="flex-1 py-3 px-4 bg-orange-600 text-white rounded-xl font-medium hover:bg-orange-700 transition-colors shadow-sm"

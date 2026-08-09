@@ -55,6 +55,7 @@ interface DataContextType {
   removePoint: (historyId: string, recordId: string) => void;
   redeemReward: (recordId: string) => void;
   resetPoints: (recordId: string) => void;
+  updateVendorMaxPoints: (newMaxPoints: number) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -397,10 +398,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const record = loyaltyRecords.find(r => r.id === recordId);
     if (record && record.points >= record.maxPoints) {
       const newVisits = record.visits + 1;
+      
+      // Inherit the vendor's CURRENT max_points when resetting to 0
+      const currentVendorMax = user?.role === 'vendor' ? user.maxPoints : vendors.find(v => v.id === record.vendorId)?.maxPoints;
+      const newMaxPoints = currentVendorMax || record.maxPoints;
 
       await supabase
         .from('loyalty_records')
-        .update({ points: 0, visits: newVisits, reward_code: null })
+        .update({ points: 0, visits: newVisits, reward_code: null, max_points: newMaxPoints })
         .eq('id', recordId);
 
       const { data: newHistory } = await supabase
@@ -411,7 +416,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       setLoyaltyRecords(prev =>
         prev.map(r =>
-          r.id === recordId ? { ...r, points: 0, visits: newVisits, rewardCode: undefined } : r
+          r.id === recordId ? { ...r, points: 0, visits: newVisits, rewardCode: undefined, maxPoints: newMaxPoints } : r
         )
       );
 
@@ -425,15 +430,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPoints = async (recordId: string) => {
-    await supabase.from('loyalty_records').update({ points: 0, reward_code: null }).eq('id', recordId);
+    const record = loyaltyRecords.find(r => r.id === recordId);
+    
+    // Inherit the vendor's CURRENT max_points when resetting to 0
+    const currentVendorMax = user?.role === 'vendor' ? user.maxPoints : vendors.find(v => v.id === record?.vendorId)?.maxPoints;
+    const newMaxPoints = currentVendorMax || record?.maxPoints || 5;
+
+    await supabase
+      .from('loyalty_records')
+      .update({ points: 0, reward_code: null, max_points: newMaxPoints })
+      .eq('id', recordId);
+      
     setLoyaltyRecords(prev =>
-      prev.map(r => r.id === recordId ? { ...r, points: 0, rewardCode: undefined } : r)
+      prev.map(r => r.id === recordId ? { ...r, points: 0, rewardCode: undefined, maxPoints: newMaxPoints } : r)
+    );
+  };
+
+  const updateVendorMaxPoints = async (newMaxPoints: number) => {
+    if (!user || user.role !== 'vendor') return;
+
+    // Update the database for all records with 0 points
+    await supabase
+      .from('loyalty_records')
+      .update({ max_points: newMaxPoints })
+      .eq('vendor_id', user.id)
+      .eq('points', 0);
+
+    // Update local state
+    setLoyaltyRecords(prev =>
+      prev.map(r => r.points === 0 ? { ...r, maxPoints: newMaxPoints } : r)
     );
   };
 
   return (
     <DataContext.Provider
-      value={{ vendors, customers, loyaltyRecords, pointHistory, addCustomer, removeCustomer, addPoint, removePoint, redeemReward, resetPoints }}
+      value={{ vendors, customers, loyaltyRecords, pointHistory, addCustomer, removeCustomer, addPoint, removePoint, redeemReward, resetPoints, updateVendorMaxPoints }}
     >
       {children}
     </DataContext.Provider>
