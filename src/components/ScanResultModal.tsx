@@ -26,9 +26,15 @@ export default function ScanResultModal({
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [pointAdded, setPointAdded] = useState(false);
 
+  const getLocalISOTime = (dateString: string) => {
+    const now = new Date();
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+  };
+
   const handleAssignPoint = () => {
     if (!record) return;
-    addPoint(record.id, new Date(selectedDate).toISOString());
+    addPoint(record.id, getLocalISOTime(selectedDate));
     setPointAdded(true);
     setTimeout(() => {
       setPointAdded(false);
@@ -151,7 +157,7 @@ export default function ScanResultModal({
                         <p className="text-sm text-orange-600">This customer is not yet in your loyalty program.</p>
                       </div>
                       <button
-                        onClick={() => onEnrollAndAssign(selectedDate)}
+                        onClick={() => onEnrollAndAssign(getLocalISOTime(selectedDate))}
                         className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
                       >
                         <Plus className="w-5 h-5" />

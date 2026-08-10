@@ -52,6 +52,12 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const getLocalISOTime = (dateString: string) => {
+    const now = new Date();
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+  };
+
   const handleRemoveCustomer = () => {
     setIsRemoveCustomerModalOpen(true);
   };
@@ -63,7 +69,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
   };
 
   const handleAssignPoint = () => {
-    addPoint(record.id, new Date(selectedDate).toISOString());
+    addPoint(record.id, getLocalISOTime(selectedDate));
     setIsAssignModalOpen(false);
     setSelectedDate(new Date().toISOString().slice(0, 10)); // Reset to now
   };
