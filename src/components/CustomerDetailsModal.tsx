@@ -18,6 +18,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
   const [pointToDelete, setPointToDelete] = useState<string | null>(null);
   const [isRemoveCustomerModalOpen, setIsRemoveCustomerModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -30,6 +31,11 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Sort newest first
     .slice(0, latestRecord.points) // Take only the active points
     .reverse(); // Reverse so earliest is at the top, latest at the bottom
+
+  const last10Transactions = pointHistory
+    .filter((h) => h.recordId === latestRecord.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 10);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -171,6 +177,12 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
                 <div className="text-sm text-gray-900 font-medium">
                   Active {customer.joinedDate ? calculateActiveDays(customer.joinedDate) : 0} Day(s)
                 </div>
+                <button 
+                  onClick={() => setIsTransactionsModalOpen(true)}
+                  className="text-sm text-blue-600 font-medium hover:text-blue-700 text-left mt-2 underline"
+                >
+                  Last 10 Transactions
+                </button>
               </div>
 
               <div className="px-6 sm:px-8">
@@ -421,6 +433,56 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
               >
                 Got it
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Transactions Modal */}
+      <AnimatePresence>
+        {isTransactionsModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setIsTransactionsModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <button
+                onClick={() => setIsTransactionsModalOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Last 10 Transactions</h2>
+              
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                {last10Transactions.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-4">No transactions found.</p>
+                ) : (
+                  last10Transactions.map((tx) => (
+                    <div key={tx.id} className="flex flex-col p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`font-semibold text-sm ${tx.type === 'earned' ? 'text-green-600' : 'text-orange-600'}`}>
+                          {tx.type === 'earned' ? 'Point Earned' : 'Reward Redeemed'}
+                        </span>
+                        <span className="text-xs text-gray-500">{formatDate(tx.date)}</span>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </motion.div>
           </div>
         )}
