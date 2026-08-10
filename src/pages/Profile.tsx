@@ -769,6 +769,9 @@ export default function Profile() {
                             className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                           />
                         </div>
+                        <div className="text-xs text-red-500 mt-2 bg-red-50 p-2 rounded-lg border border-red-100">
+                          <strong>Disclaimer:</strong> If customers do not redeem their reward before this exact date, all their accumulated points will be automatically reset to 0.
+                        </div>
                       </div>
                     )}
                   </div>

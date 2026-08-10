@@ -148,8 +148,11 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
                       <strong>Minimum spend required:</strong> {vendor.noMinSpend ? 'No minimum spend' : `R${vendor.minSpend || 0}`}
                     </li>
                     {vendor.hasExpiration && vendor.expirationDate && (
-                      <li>
-                        <strong>Expiry date:</strong> {vendor.expirationDate.replace(/-/g, '/')}
+                      <li className="flex flex-col gap-1">
+                        <span><strong>Expiry date:</strong> {vendor.expirationDate.replace(/-/g, '/')}</span>
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 w-fit">
+                          <strong>Disclaimer:</strong> If you do not redeem your reward before this date, all your accumulated points will automatically reset to 0.
+                        </div>
                       </li>
                     )}
                     <li>
