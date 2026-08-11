@@ -147,6 +147,11 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
                     <li>
                       <strong>Minimum spend required:</strong> {vendor.noMinSpend ? 'No minimum spend' : `R${vendor.minSpend || 0}`}
                     </li>
+                    {!!vendor.cooldownHours && vendor.cooldownHours > 0 && (
+                      <li>
+                        <strong>Point limit:</strong> Maximum 1 point per {vendor.cooldownHours} {vendor.cooldownHours === 1 ? 'hour' : 'hours'}
+                      </li>
+                    )}
                     {vendor.hasExpiration && vendor.expirationDate && (
                       <li className="flex flex-col gap-1">
                         <span><strong>Expiry date:</strong> {vendor.expirationDate.replace(/-/g, '/')}</span>

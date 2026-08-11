@@ -296,6 +296,15 @@ export default function Profile() {
                       <span><span className="font-medium">Redeemable reward:</span> {rewardType === 'discount' ? 'Discount' : 'Freebie'} | {rewardItem || 'Not specified'}</span>
                     </div>
                     <div 
+                      className="text-sm text-gray-700 flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-2 rounded-lg transition-colors -mx-2"
+                      onClick={() => { setTempCooldownHours(cooldownHours); setIsDirectEdit(true); setIsWizardMode(false); setModalView('step5'); setIsSetupModalOpen(true); }}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <span><span className="font-medium">Fraud protection (Rate limit):</span> {cooldownHours > 0 ? `Max 1 point per ${cooldownHours} ${cooldownHours === 1 ? 'hour' : 'hours'}` : 'Off'}</span>
+                    </div>
+                    <div 
                       className="text-sm text-gray-700 flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-2 rounded-lg transition-colors -mx-2 mt-2 border-t border-gray-100 pt-3"
                       onClick={() => { setIsDirectEdit(false); setIsWizardMode(false); setModalView('main'); setIsSetupModalOpen(true); }}
                     >
