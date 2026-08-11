@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, ShieldCheck } from 'lucide-react';
+import { Menu, X, Home, Info, User, MessageSquare, Share2, LogOut, QrCode, ShieldCheck, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData, Customer, LoyaltyRecord } from '../context/DataContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -54,6 +54,7 @@ export default function Layout() {
   const navLinks = [
     { name: 'Home', path: '/', icon: Home },
     { name: 'About', path: '/about', icon: Info },
+    ...(user?.role === 'vendor' ? [{ name: 'Stats', path: '/stats', icon: TrendingUp }] : []),
     { name: 'Profile', path: '/profile', icon: User },
     { name: 'Chat', path: '/chat', icon: MessageSquare },
   ];

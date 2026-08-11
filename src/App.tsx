@@ -13,6 +13,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import About from './pages/About';
 import Chat from './pages/Chat';
+import Stats from './pages/Stats';
 import AdminSection from './pages/AdminSection';
 import OfflineBanner from './components/OfflineBanner';
 
@@ -55,6 +56,7 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="profile" element={<Profile />} />
               <Route path="about" element={<About />} />
+              <Route path="stats" element={<Stats />} />
               <Route path="chat" element={<Chat />} />
               <Route path="admin" element={<AdminSection />} />
             </Route>
