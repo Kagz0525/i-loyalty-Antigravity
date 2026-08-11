@@ -5,13 +5,15 @@ import { Search, Plus, CheckCircle2, Gift, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
+import VendorAnalytics from '../components/VendorAnalytics';
 
 export default function VendorDashboard() {
   const { user } = useAuth();
-  const { customers, loyaltyRecords, addCustomer, addPoint, redeemReward } = useData();
+  const { customers, loyaltyRecords, pointHistory, addCustomer, addPoint, redeemReward } = useData();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'customers' | 'analytics'>('customers');
   const [searchQuery, setSearchQuery] = useState('');
   const [showRewardsDue, setShowRewardsDue] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -28,6 +30,7 @@ export default function VendorDashboard() {
 
   // Filter records for this vendor
   const vendorRecords = React.useMemo(() => loyaltyRecords.filter((r) => r.vendorId === user?.id), [loyaltyRecords, user?.id]);
+  const vendorPointHistory = React.useMemo(() => pointHistory.filter(h => vendorRecords.some(r => r.id === h.recordId)), [pointHistory, vendorRecords]);
   const isPlanLimitReached = user?.planType === 'Starter' && vendorRecords.length >= 10;
 
   // Join records with customer data (unfiltered for auto-open, filtered for display)
@@ -124,10 +127,35 @@ export default function VendorDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      <div className="flex justify-center mb-8">
+        <div className="bg-gray-100 p-1 rounded-xl inline-flex shadow-inner">
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'customers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Customers
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'analytics' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Analytics
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'analytics' ? (
+        <VendorAnalytics records={vendorRecords} pointHistory={vendorPointHistory} />
+      ) : (
+        <>
+          <div className="mb-8">
+            <div className="max-w-md mx-auto flex items-center gap-3">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
@@ -264,6 +292,8 @@ export default function VendorDashboard() {
       >
         <Plus className="w-8 h-8" />
       </button>
+      </>
+      )}
 
       {/* Plan Limit Modal */}
       <AnimatePresence>
