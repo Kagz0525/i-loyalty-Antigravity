@@ -16,6 +16,7 @@ export interface Vendor {
   discountPercentage?: number;
   hasExpiration?: boolean;
   expirationDate?: string;
+  cooldownHours?: number;
 }
 
 export interface Customer {
@@ -139,6 +140,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         discountPercentage: v.discount_percentage,
         hasExpiration: v.has_expiration,
         expirationDate: v.expiration_date,
+        cooldownHours: v.cooldown_hours,
       })));
     }
 

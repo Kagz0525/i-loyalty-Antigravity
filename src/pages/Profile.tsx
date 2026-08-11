@@ -17,7 +17,7 @@ export default function Profile() {
   const [profilePic, setProfilePic] = useState<string | null>(user?.profilePic || null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
-  const [modalView, setModalView] = useState<'main' | 'step1' | 'step2' | 'step3' | 'step4'>('main');
+  const [modalView, setModalView] = useState<'main' | 'step1' | 'step2' | 'step3' | 'step4' | 'step5'>('main');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 1 Settings
@@ -43,6 +43,10 @@ export default function Profile() {
   const [tempHasExpiration, setTempHasExpiration] = useState(hasExpiration);
   const [expirationDate, setExpirationDate] = useState(user?.expirationDate || new Date().toISOString().split('T')[0]);
   const [tempExpirationDate, setTempExpirationDate] = useState(expirationDate);
+
+  // Step 5 Settings
+  const [cooldownHours, setCooldownHours] = useState(user?.cooldownHours || 0);
+  const [tempCooldownHours, setTempCooldownHours] = useState(cooldownHours);
 
   // Wizard State
   const [isWizardMode, setIsWizardMode] = useState(false);
@@ -456,6 +460,16 @@ export default function Profile() {
                       <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0 text-sm font-bold mt-0.5">4</div>
                       <p className="text-gray-700 font-medium">Setup reward expiry date</p>
                     </div>
+                    <div 
+                      className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors -mx-2"
+                      onClick={() => {
+                        setTempCooldownHours(cooldownHours);
+                        setModalView('step5');
+                      }}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0 text-sm font-bold mt-0.5">5</div>
+                      <p className="text-gray-700 font-medium">Setup fraud protection</p>
+                    </div>
                   </div>
 
                   <hr className="border-gray-200 mb-6" />
@@ -471,6 +485,7 @@ export default function Profile() {
                       setTempDiscountPercentage(discountPercentage);
                       setTempHasExpiration(hasExpiration);
                       setTempExpirationDate(expirationDate);
+                      setTempCooldownHours(cooldownHours);
                       setModalView('step1');
                     }}
                     className="w-full py-3 px-4 bg-orange-600 text-white rounded-xl font-medium text-lg hover:bg-orange-700 transition-colors shadow-sm"
@@ -799,6 +814,70 @@ export default function Profile() {
                 </>
               )}
 
+              {modalView === 'step5' && (
+                <>
+                  <div className="flex items-center mb-6">
+                    {!isDirectEdit && (
+                      <button 
+                        onClick={() => {
+                          setIsWizardMode(false);
+                          setModalView('main');
+                        }}
+                        className="mr-3 text-gray-500 hover:text-gray-900"
+                      >
+                        <ArrowLeft className="w-5 h-5" />
+                      </button>
+                    )}
+                    <h2 className="text-xl font-bold text-gray-900">Setup Fraud Protection</h2>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 mb-6">
+                    Prevent cashiers from accidentally or maliciously assigning multiple points to the same customer within a short timeframe.
+                  </p>
+
+                  <div className="mb-8 space-y-4">
+                    <label className="block text-sm text-gray-600">Minimum time required between points (Cooldown)</label>
+                    <select
+                      value={tempCooldownHours}
+                      onChange={(e) => setTempCooldownHours(Number(e.target.value))}
+                      className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                    >
+                      <option value={0}>No Cooldown</option>
+                      <option value={1}>1 Hour</option>
+                      <option value={2}>2 Hours</option>
+                      <option value={4}>4 Hours</option>
+                      <option value={12}>12 Hours</option>
+                      <option value={24}>24 Hours</option>
+                    </select>
+                    {tempCooldownHours > 0 && (
+                       <div className="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded-lg border border-orange-100">
+                         <strong>Active:</strong> A customer can only receive 1 point every {tempCooldownHours} {tempCooldownHours === 1 ? 'hour' : 'hours'}.
+                       </div>
+                    )}
+                  </div>
+
+                  {!isWizardMode && (tempCooldownHours !== cooldownHours) && (
+                    <button
+                      onClick={() => {
+                        setCooldownHours(tempCooldownHours);
+                        updateUser({ cooldownHours: tempCooldownHours });
+                        if (isDirectEdit) {
+                          setIsSetupModalOpen(false);
+                          setIsDirectEdit(false);
+                          setModalView('main');
+                        } else {
+                          setModalView('main');
+                          setIsSetupModalOpen(false);
+                        }
+                      }}
+                      className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium text-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      Save
+                    </button>
+                  )}
+                </>
+              )}
+
               {isWizardMode && modalView !== 'main' && (
                 <div className="flex gap-3 mt-8 pt-6 border-t border-gray-100">
                   {modalView !== 'step1' && (
@@ -807,6 +886,7 @@ export default function Profile() {
                         if (modalView === 'step2') { setMinSpend(tempNoMinSpend ? 0 : tempMinSpend); setNoMinSpend(tempNoMinSpend); setModalView('step1'); }
                         if (modalView === 'step3') { setRewardType(tempRewardType); setRewardItem(tempRewardItem); setDiscountPercentage(tempDiscountPercentage); setModalView('step2'); }
                         if (modalView === 'step4') { setHasExpiration(tempHasExpiration); setExpirationDate(tempExpirationDate); setModalView('step3'); }
+                        if (modalView === 'step5') { setCooldownHours(tempCooldownHours); setModalView('step4'); }
                       }}
                       className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                     >
@@ -818,18 +898,18 @@ export default function Profile() {
                       if (modalView === 'step1') { setMaxPoints(tempMaxPoints); setModalView('step2'); }
                       if (modalView === 'step2') { setMinSpend(tempNoMinSpend ? 0 : tempMinSpend); setNoMinSpend(tempNoMinSpend); setModalView('step3'); }
                       if (modalView === 'step3') { setRewardType(tempRewardType); setRewardItem(tempRewardItem); setDiscountPercentage(tempDiscountPercentage); setModalView('step4'); }
-                      if (modalView === 'step4') { 
-                        setHasExpiration(tempHasExpiration); 
-                        setExpirationDate(tempExpirationDate); 
+                      if (modalView === 'step4') { setHasExpiration(tempHasExpiration); setExpirationDate(tempExpirationDate); setModalView('step5'); }
+                      if (modalView === 'step5') { 
+                        setCooldownHours(tempCooldownHours); 
                         setIsWizardMode(false); 
                         setModalView('main'); 
-                        updateUser({ maxPoints: tempMaxPoints });
+                        updateUser({ maxPoints: tempMaxPoints, cooldownHours: tempCooldownHours });
                         updateVendorMaxPoints(tempMaxPoints);
                       }
                     }}
                     className="flex-1 py-3 px-4 bg-orange-600 text-white rounded-xl font-medium hover:bg-orange-700 transition-colors shadow-sm"
                   >
-                    {modalView === 'step4' ? 'Finish & Save Wizard' : 'Next Step'}
+                    {modalView === 'step5' ? 'Finish & Save Wizard' : 'Next Step'}
                   </button>
                 </div>
               )}

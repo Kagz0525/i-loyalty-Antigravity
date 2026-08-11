@@ -20,6 +20,7 @@ export interface User {
   discountPercentage?: number;
   hasExpiration?: boolean;
   expirationDate?: string;
+  cooldownHours?: number;
   authProvider?: string;
 }
 
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           discountPercentage: meta.discount_percentage ?? undefined,
           hasExpiration: meta.has_expiration ?? undefined,
           expirationDate: meta.expiration_date ?? undefined,
+          cooldownHours: meta.cooldown_hours ?? undefined,
           authProvider: session.user.app_metadata?.provider || 'email',
         });
       } finally {
@@ -158,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.discountPercentage !== undefined) updates.discount_percentage = data.discountPercentage;
       if (data.hasExpiration !== undefined) updates.has_expiration = data.hasExpiration;
       if (data.expirationDate !== undefined) updates.expiration_date = data.expirationDate;
+      if (data.cooldownHours !== undefined) updates.cooldown_hours = data.cooldownHours;
       if (data.profilePic !== undefined) updates.profile_pic = data.profilePic;
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
@@ -311,6 +314,7 @@ async function fetchAndSyncProfile(
       businessName: p.business_name || undefined,
       planType: p.plan_type,
       maxPoints: p.max_points ?? undefined,
+      cooldownHours: p.cooldown_hours ?? undefined,
       profilePic: p.profile_pic || undefined,
       authProvider,
     });
@@ -320,6 +324,7 @@ async function fetchAndSyncProfile(
       id: userId, email, name: resolvedName, role: resolvedRole,
       businessName: resolvedBusinessName || undefined,
       maxPoints: resolvedMaxPoints || undefined,
+      cooldownHours: undefined,
       authProvider,
     });
   }

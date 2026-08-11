@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, User, Calendar, CheckCircle } from 'lucide-react';
 import { Customer, LoyaltyRecord, useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 
 interface ScanResultModalProps {
   isOpen: boolean;
@@ -22,7 +23,8 @@ export default function ScanResultModal({
   onEnrollAndAssign,
   notFound,
 }: ScanResultModalProps) {
-  const { addPoint, isOffline } = useData();
+  const { addPoint, isOffline, pointHistory } = useData();
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [pointAdded, setPointAdded] = useState(false);
 
@@ -43,6 +45,22 @@ export default function ScanResultModal({
   };
 
   const isRewardReady = record ? record.points >= record.maxPoints : false;
+
+  const cooldownHours = user?.cooldownHours || 0;
+  let hoursRemaining = 0;
+  if (record && cooldownHours > 0) {
+    const latestPoint = pointHistory
+      .filter(h => h.recordId === record.id && h.type === 'earned')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      
+    if (latestPoint) {
+      const msSinceLastPoint = Date.now() - new Date(latestPoint.date).getTime();
+      const cooldownMs = cooldownHours * 60 * 60 * 1000;
+      if (msSinceLastPoint < cooldownMs) {
+        hoursRemaining = Math.ceil((cooldownMs - msSinceLastPoint) / (60 * 60 * 1000));
+      }
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -172,13 +190,22 @@ export default function ScanResultModal({
                       )}
                     </>
                   ) : !isRewardReady ? (
-                    <button
-                      onClick={handleAssignPoint}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
-                    >
-                      <Plus className="w-5 h-5" />
-                      Assign 1 Loyalty Point
-                    </button>
+                    hoursRemaining > 0 ? (
+                      <div className="text-center bg-red-50 p-4 rounded-xl border border-red-100 mb-2">
+                        <p className="text-sm font-bold text-red-700">Fraud Protection Active</p>
+                        <p className="text-xs text-red-600 mt-1">
+                          Customer must wait {hoursRemaining} more {hoursRemaining === 1 ? 'hour' : 'hours'} before receiving another point.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleAssignPoint}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Assign 1 Loyalty Point
+                      </button>
+                    )
                   ) : (
                     <div className="text-center bg-emerald-50 p-4 rounded-xl border border-emerald-100 mb-2">
                       <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
