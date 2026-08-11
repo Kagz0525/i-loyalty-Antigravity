@@ -22,7 +22,7 @@ export default function ScanResultModal({
   onEnrollAndAssign,
   notFound,
 }: ScanResultModalProps) {
-  const { addPoint } = useData();
+  const { addPoint, isOffline } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [pointAdded, setPointAdded] = useState(false);
 
@@ -156,13 +156,20 @@ export default function ScanResultModal({
                         <h3 className="text-orange-800 font-bold mb-1">New Customer!</h3>
                         <p className="text-sm text-orange-600">This customer is not yet in your loyalty program.</p>
                       </div>
-                      <button
-                        onClick={() => onEnrollAndAssign(getLocalISOTime(selectedDate))}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Register Customer
-                      </button>
+                      {isOffline ? (
+                        <div className="text-center bg-red-50 p-4 rounded-xl border border-red-100 mb-3">
+                          <p className="text-sm font-semibold text-red-700">Registration Disabled Offline</p>
+                          <p className="text-xs text-red-600 mt-1">Please reconnect to the internet to register new customers.</p>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onEnrollAndAssign(getLocalISOTime(selectedDate))}
+                          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-orange-600 text-white rounded-xl font-semibold text-base hover:bg-orange-700 transition-colors shadow-sm"
+                        >
+                          <Plus className="w-5 h-5" />
+                          Register Customer
+                        </button>
+                      )}
                     </>
                   ) : !isRewardReady ? (
                     <button

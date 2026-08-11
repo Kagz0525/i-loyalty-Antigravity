@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import About from './pages/About';
 import Chat from './pages/Chat';
 import AdminSection from './pages/AdminSection';
+import OfflineBanner from './components/OfflineBanner';
 
 // Full-screen loading spinner shown while the auth session is being resolved
 function LoadingScreen() {
@@ -40,6 +41,7 @@ export default function App() {
     <AuthProvider>
       <DataProvider>
         <Router>
+          <OfflineBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route

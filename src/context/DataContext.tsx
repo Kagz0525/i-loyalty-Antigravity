@@ -56,6 +56,7 @@ interface DataContextType {
   redeemReward: (recordId: string) => void;
   resetPoints: (recordId: string) => void;
   updateVendorMaxPoints: (newMaxPoints: number) => Promise<void>;
+  isOffline: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -66,6 +67,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loyaltyRecords, setLoyaltyRecords] = useState<LoyaltyRecord[]>([]);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOffline(false);
+      const queue = JSON.parse(localStorage.getItem('iLoyalty_offline_queue') || '[]');
+      if (queue.length === 0) return;
+
+      for (const action of queue) {
+        if (action.type === 'addPoint') {
+          const { recordId, newPoints, newVisits, rewardCode, historyDate } = action.payload;
+          
+          await supabase
+            .from('loyalty_records')
+            .update({ points: newPoints, visits: newVisits, reward_code: rewardCode })
+            .eq('id', recordId);
+
+          await supabase
+            .from('point_history')
+            .insert([{ record_id: recordId, date: historyDate, type: 'earned' }]);
+        }
+      }
+      localStorage.removeItem('iLoyalty_offline_queue');
+      fetchData();
+    };
+
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -347,18 +384,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const isRewardReady = newPoints >= record.maxPoints;
       const rewardCode = isRewardReady ? generateRewardCode() : record.rewardCode;
       const newVisits = record.visits + 1;
-
-      await supabase
-        .from('loyalty_records')
-        .update({ points: newPoints, visits: newVisits, reward_code: rewardCode })
-        .eq('id', recordId);
-
       const historyDate = date || new Date().toISOString();
-      const { data: newHistory } = await supabase
-        .from('point_history')
-        .insert([{ record_id: recordId, date: historyDate, type: 'earned' }])
-        .select()
-        .single();
+      const tempHistoryId = 'temp-' + Date.now();
 
       setLoyaltyRecords(prev =>
         prev.map(r =>
@@ -366,11 +393,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
         )
       );
 
+      setPointHistory(prev => [
+        { id: tempHistoryId, recordId, date: historyDate, type: 'earned' },
+        ...prev,
+      ]);
+
+      if (!navigator.onLine) {
+        const queue = JSON.parse(localStorage.getItem('iLoyalty_offline_queue') || '[]');
+        queue.push({ type: 'addPoint', payload: { recordId, newPoints, newVisits, rewardCode, historyDate } });
+        localStorage.setItem('iLoyalty_offline_queue', JSON.stringify(queue));
+        return;
+      }
+
+      await supabase
+        .from('loyalty_records')
+        .update({ points: newPoints, visits: newVisits, reward_code: rewardCode })
+        .eq('id', recordId);
+
+      const { data: newHistory } = await supabase
+        .from('point_history')
+        .insert([{ record_id: recordId, date: historyDate, type: 'earned' }])
+        .select()
+        .single();
+
       if (newHistory) {
-        setPointHistory(prev => [
-          { id: newHistory.id, recordId: newHistory.record_id, date: newHistory.date, type: newHistory.type },
-          ...prev,
-        ]);
+        setPointHistory(prev => prev.map(h => h.id === tempHistoryId ? { ...h, id: newHistory.id } : h));
       }
     }
   };
@@ -464,7 +511,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider
-      value={{ vendors, customers, loyaltyRecords, pointHistory, addCustomer, removeCustomer, addPoint, removePoint, redeemReward, resetPoints, updateVendorMaxPoints }}
+      value={{ vendors, customers, loyaltyRecords, pointHistory, addCustomer, removeCustomer, addPoint, removePoint, redeemReward, resetPoints, updateVendorMaxPoints,
+        isOffline,
+      }}
     >
       {children}
     </DataContext.Provider>
