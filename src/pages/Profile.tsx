@@ -210,7 +210,9 @@ export default function Profile() {
         <div className="pt-16 pb-8 px-8">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {user?.role === 'vendor' ? (user?.businessName || user?.name) : user?.name}
+              </h1>
               <p className="text-gray-500 capitalize">{user?.role}</p>
             </div>
             {isDirty && (
