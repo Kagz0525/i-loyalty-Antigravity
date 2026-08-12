@@ -8,6 +8,7 @@ export interface Vendor {
   email: string;
   businessName: string;
   phone?: string;
+  profilePic?: string;
   maxPoints?: number;
   minSpend?: number;
   noMinSpend?: boolean;
@@ -24,6 +25,7 @@ export interface Customer {
   name: string;
   email: string;
   phone: string;
+  profilePic?: string;
   joinedDate: string;
   birthday?: string;
 }
@@ -141,6 +143,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         hasExpiration: v.has_expiration,
         expirationDate: v.expiration_date,
         cooldownHours: v.cooldown_hours,
+        profilePic: v.profile_pic,
       })));
     }
 
@@ -209,6 +212,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           name: p.name,
           email: p.email,
           phone: p.phone || '',
+          profilePic: p.profile_pic,
           joinedDate: p.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
         });
       });

@@ -90,7 +90,12 @@ export default function VendorDetailsModal({ isOpen, onClose, record, vendor }: 
               </button>
 
               <div className="p-6 sm:p-8 pb-6 text-center mt-8 sm:mt-0">
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Loyalty Breakdown</h2>
+                <div className="flex flex-col items-center mb-1">
+                  {vendor.profilePic && (
+                    <img src={vendor.profilePic} alt={vendor.businessName} className="w-20 h-20 rounded-full object-cover shadow-sm mb-3" />
+                  )}
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">Loyalty Breakdown</h2>
+                </div>
                 <p className="text-lg text-orange-600 mb-2">{vendor.businessName}</p>
                 <p className="text-gray-900 font-medium">
                   {latestRecord.points} / {latestRecord.maxPoints}

@@ -115,16 +115,25 @@ export default function CustomerDashboard() {
                 </div>
 
                 {/* Vendor Info */}
-                <div className="mb-6">
-                  <h3 className={`text-xl font-bold tracking-tight ${isRewardReady ? 'text-white' : 'text-gray-900'}`}>
-                    {card.vendor.businessName}
-                  </h3>
-                  <p className={`text-sm mt-1 ${isRewardReady ? 'text-emerald-100' : 'text-gray-500'}`}>
-                    {card.vendor.email}
-                  </p>
-                  <p className={`text-xs mt-1 font-mono ${isRewardReady ? 'text-emerald-200' : 'text-gray-400'}`}>
-                    {card.vendor.phone || '081 111 2222'}
-                  </p>
+                <div className="mb-6 flex items-center gap-4">
+                  {card.vendor.profilePic ? (
+                    <img src={card.vendor.profilePic} alt={card.vendor.businessName} className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isRewardReady ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                      <span className="font-bold text-lg">{card.vendor.businessName.charAt(0).toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div>
+                    <h3 className={`text-xl font-bold tracking-tight ${isRewardReady ? 'text-white' : 'text-gray-900'}`}>
+                      {card.vendor.businessName}
+                    </h3>
+                    <p className={`text-sm mt-1 ${isRewardReady ? 'text-emerald-100' : 'text-gray-500'}`}>
+                      {card.vendor.email}
+                    </p>
+                    <p className={`text-xs mt-1 font-mono ${isRewardReady ? 'text-emerald-200' : 'text-gray-400'}`}>
+                      {card.vendor.phone || '081 111 2222'}
+                    </p>
+                  </div>
                 </div>
 
                 {isRewardReady && (

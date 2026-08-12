@@ -97,35 +97,45 @@ export default function Profile() {
     setIsUploading(true);
     
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `profile_pics/${user.id}-${Math.random()}.${fileExt}`;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 150;
+          const MAX_HEIGHT = 150;
+          let width = img.width;
+          let height = img.height;
 
-      // Upload the file to "Send_My_Task_Assets" private bucket
-      const { error: uploadError } = await supabase.storage
-        .from('Send_My_Task_Assets')
-        .upload(fileName, file, { 
-          cacheControl: '3600',
-          upsert: true 
-        });
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
 
-      if (uploadError) {
-        throw uploadError;
-      }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
 
-      // Generate a signed URL valid for 10 years because the bucket is private
-      const { data: urlData, error: urlError } = await supabase.storage
-        .from('Send_My_Task_Assets')
-        .createSignedUrl(fileName, 60 * 60 * 24 * 365 * 10);
-
-      if (urlError) {
-        throw urlError;
-      }
-
-      setProfilePic(urlData.signedUrl);
+          // Get compressed base64 string
+          const base64String = canvas.toDataURL('image/webp', 0.5);
+          
+          setProfilePic(base64String);
+          setIsUploading(false);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     } catch (error: any) {
-      console.error('Error uploading image:', error);
-      alert('Error uploading image: ' + error.message);
-    } finally {
+      console.error('Error processing image:', error);
+      alert('Error processing image: ' + error.message);
       setIsUploading(false);
     }
   };
