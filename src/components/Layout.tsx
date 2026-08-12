@@ -53,9 +53,9 @@ export default function Layout() {
 
   const navLinks = [
     { name: 'Home', path: '/', icon: Home },
-    { name: 'About', path: '/about', icon: Info },
-    ...(user?.role === 'vendor' ? [{ name: 'Stats', path: '/stats', icon: TrendingUp }] : []),
     { name: 'Profile', path: '/profile', icon: User },
+    ...(user?.role === 'vendor' ? [{ name: 'Stats', path: '/stats', icon: TrendingUp }] : []),
+    { name: 'About', path: '/about', icon: Info },
     { name: 'Chat', path: '/chat', icon: MessageSquare },
   ];
 
