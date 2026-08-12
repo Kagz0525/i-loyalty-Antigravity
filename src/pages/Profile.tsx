@@ -1102,6 +1102,11 @@ export default function Profile() {
                   maxLength={12}
                   className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
+                {user?.role === 'vendor' && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    <span className="font-semibold text-gray-700">Note:</span> This phone number will be visible to customers on your loyalty program.
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => {
