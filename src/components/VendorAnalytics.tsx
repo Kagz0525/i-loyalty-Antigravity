@@ -13,7 +13,7 @@ interface VendorAnalyticsProps {
 type TimeFilter = '1D' | '7D' | '1M' | '1Y';
 
 export default function VendorAnalytics({ records, pointHistory }: VendorAnalyticsProps) {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('1M');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('7D');
 
   // 1. Calculate top-level stats (Inception to date)
   const totalCustomers = records.length;
