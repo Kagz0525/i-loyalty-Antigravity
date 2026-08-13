@@ -16,10 +16,10 @@ export default function Landing() {
       </div>
       
       {/* Bottom section with the white arc and buttons */}
-      <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-16 px-6 pb-12 z-10 -mt-[15vh] relative w-full">
+      <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-8 px-6 pb-12 z-10 -mt-[5vh] relative w-full">
         
         {/* Logo */}
-        <div className="w-full max-w-xs mb-auto mt-4">
+        <div className="w-full max-w-xs mb-auto mt-0">
           <img src="/assets/logo.png" alt="i-Loyalty Logo" className="w-full h-auto object-contain" />
         </div>
         
