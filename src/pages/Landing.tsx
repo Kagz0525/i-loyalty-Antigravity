@@ -5,23 +5,22 @@ export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[100dvh] bg-[#f89c1e] flex flex-col relative overflow-hidden">
-      {/* Top half with the lady image */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-[60dvh] w-full bg-top bg-no-repeat"
-        style={{ 
-          backgroundImage: 'url(/assets/landing-bg.jpg)',
-          backgroundSize: '100% auto', // This ensures the width fits perfectly without cropping
-          backgroundColor: '#f69a19' // Fallback orange color
-        }}
-      />
+    <div className="min-h-[100dvh] bg-[#f69a19] flex flex-col relative overflow-hidden">
+      {/* Top section with the lady image scaling naturally */}
+      <div className="w-full flex-shrink-0">
+        <img 
+          src="/assets/landing-bg.jpg" 
+          alt="Landing Background"
+          className="w-full h-auto object-cover object-top"
+        />
+      </div>
       
-      {/* Bottom half with the white arc and buttons */}
-      <div className="absolute bottom-0 left-0 right-0 h-[45dvh] bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-8 px-6 pb-8 z-10">
+      {/* Bottom section with the white arc and buttons */}
+      <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-12 px-6 pb-8 z-10 -mt-[3rem] relative w-full">
         
         {/* Logo */}
-        <div className="flex-1 flex items-center justify-center w-full max-w-sm mb-2">
-          <img src="/assets/logo.png" alt="i-Loyalty Logo" className="h-32 w-auto object-contain" />
+        <div className="flex-1 flex items-center justify-center w-full max-w-xs mb-2">
+          <img src="/assets/logo.png" alt="i-Loyalty Logo" className="w-full h-auto object-contain" />
         </div>
         
         {/* Buttons */}
