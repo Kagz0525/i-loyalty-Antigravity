@@ -16,7 +16,7 @@ export default function Landing() {
       </div>
       
       {/* Bottom section with the white arc and buttons */}
-      <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-2 px-6 pb-12 z-10 -mt-[2vh] relative w-full">
+      <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-2 px-6 pb-20 z-10 -mt-[2vh] relative w-full">
         
         {/* Logo */}
         <div className="w-full max-w-xs mt-2">
