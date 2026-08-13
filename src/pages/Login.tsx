@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Store, UserCircle2, Eye, EyeOff, Info, ChevronDown, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -190,9 +190,11 @@ type SignUpStep = 'role' | 'details';
 export default function Login() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // ─── All state declared first before any useEffects ────────────────────────
-  const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
+  const initialMode = searchParams.get('mode') === 'sign-up' ? 'sign-up' : 'sign-in';
+  const [authMode, setAuthMode] = useState<AuthMode>(initialMode);
   const [signUpStep, setSignUpStep] = useState<SignUpStep>('role');
   const [role, setRole] = useState<'customer' | 'vendor'>('customer');
   const [email, setEmail] = useState('');

@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import Layout from './components/Layout';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
@@ -33,7 +34,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // While the profile is being fetched, show a spinner instead of
   // instantly redirecting to /login (which caused the "need to clear cache" bug)
   if (loading) return <LoadingScreen />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/landing" replace />;
   return <>{children}</>;
 }
 
@@ -44,6 +45,7 @@ export default function App() {
         <Router>
           <OfflineBanner />
           <Routes>
+            <Route path="/landing" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route
               path="/"
