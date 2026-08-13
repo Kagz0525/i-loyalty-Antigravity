@@ -399,6 +399,13 @@ export default function Login() {
   // ─── Sign-in form ─────────────────────────────────────────────────────────
   const renderSignIn = () => (
     <form className="space-y-5" onSubmit={handleEmailSignIn}>
+      <button type="button" onClick={handleGoogleAuth} disabled={submitting}
+        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
+        <GoogleIcon />Sign in with Google
+      </button>
+
+      <Divider label="or sign in with email" />
+
       <div>
         <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
         <ComboEmailInput id="signin-email" value={email} onChange={setEmail} placeholder="you@example.com" />
@@ -411,8 +418,14 @@ export default function Login() {
         autoComplete="current-password"
       />
 
-      <div className="flex items-center justify-end">
-        <button type="button" onClick={() => switchMode('forgot-password')} className="text-sm font-medium text-orange-600 hover:text-orange-500 focus:outline-none">Forgot your password?</button>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded" />
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+            Remember me
+          </label>
+        </div>
+        <button type="button" onClick={() => switchMode('forgot-password')} className="text-sm font-medium text-orange-600 hover:text-orange-500 focus:outline-none">Forgot password?</button>
       </div>
 
       {error && <ErrorMessage message={error} />}
@@ -420,13 +433,6 @@ export default function Login() {
       <button type="submit" disabled={submitting}
         className="w-full flex justify-center py-3 px-4 rounded-xl shadow-sm text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-60">
         {submitting ? 'Signing in…' : 'Sign in'}
-      </button>
-
-      <Divider label="or" />
-
-      <button type="button" onClick={handleGoogleAuth} disabled={submitting}
-        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
-        <GoogleIcon />Sign in with Google
       </button>
     </form>
   );
@@ -436,8 +442,8 @@ export default function Login() {
     <div className="flex flex-col space-y-4">
       <p className="text-center text-sm text-gray-500 font-medium">I am signing up as a…</p>
       {([
+        { r: 'vendor' as const, icon: <Store className="w-6 h-6" />, title: 'Business', desc: 'I want to manage customer points (e.g. Hair salon, Car wash)' },
         { r: 'customer' as const, icon: <UserCircle2 className="w-6 h-6" />, title: 'Customer', desc: 'I want to view and track my loyalty points' },
-        { r: 'vendor' as const, icon: <Store className="w-6 h-6" />, title: 'Vendor', desc: 'I want to manage customer points (e.g. Hair salon, Car wash)' },
       ]).map(({ r, icon, title, desc }) => (
         <button key={r} type="button"
           onClick={() => { setRole(r); setSignUpStep('details'); setError(null); }}
@@ -455,6 +461,13 @@ export default function Login() {
   // ─── Sign-up: customer details ────────────────────────────────────────────
   const renderCustomerDetails = () => (
     <form className="space-y-5" onSubmit={handleEmailSignUp}>
+      <button type="button" onClick={handleGoogleAuth} disabled={submitting}
+        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
+        <GoogleIcon />Sign up with Google
+      </button>
+
+      <Divider label="or sign up with email" />
+
       <div>
         <label htmlFor="customer-name" className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
         <input id="customer-name" type="text" required value={fullName} onChange={e => setFullName(e.target.value)}
@@ -491,13 +504,6 @@ export default function Login() {
         {' '}and{' '}
         <button type="button" onClick={() => setViewingLegal('privacy')} className="text-orange-500 hover:underline">Privacy Policy</button>
       </p>
-
-      <Divider label="or" />
-
-      <button type="button" onClick={handleGoogleAuth} disabled={submitting}
-        className="w-full flex items-center justify-center py-2.5 px-4 border border-gray-300 rounded-xl bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
-        <GoogleIcon />Sign up with Google
-      </button>
     </form>
   );
 
@@ -687,6 +693,7 @@ export default function Login() {
         <>
           <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
             <div className="text-center">
+              <img src="/assets/logo.png" alt="i-Loyalty Logo" className="h-10 mx-auto mb-4 object-contain" />
               <h2 className="text-3xl font-extrabold text-gray-900">
                 {isVerifying ? 'Check your email' :
                  authMode === 'forgot-password' ? 'Reset password' :
@@ -694,16 +701,6 @@ export default function Login() {
                  authMode === 'update-password' ? 'New password' :
                  (isSignUp ? 'Create an account' : 'Welcome back')}
               </h2>
-              {!isVerifying && authMode !== 'forgot-password-verify' && authMode !== 'update-password' && (
-                <p className="mt-2 text-sm text-gray-600">
-                  {authMode === 'forgot-password' ? 'Remembered it? ' :
-                   isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                  <button onClick={() => switchMode(authMode === 'forgot-password' ? 'sign-in' : isSignUp ? 'sign-in' : 'sign-up')}
-                    className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
-                    {authMode === 'forgot-password' ? 'Back to sign in' : isSignUp ? 'Sign in' : 'Sign up'}
-                  </button>
-                </p>
-              )}
             </div>
 
             {isSignUp && signUpStep === 'details' && !isVerifying && (
@@ -713,7 +710,7 @@ export default function Login() {
                   ← Back
                 </button>
                 <span className={`ml-auto text-xs font-semibold px-3 py-1 rounded-full ${role === 'vendor' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {role === 'vendor' ? '🏪 Vendor' : '👤 Customer'}
+                  {role === 'vendor' ? '🏪 Business' : '👤 Customer'}
                 </span>
               </div>
             )}
@@ -733,6 +730,17 @@ export default function Login() {
                 {isSignUp && signUpStep === 'details' && role === 'customer' && renderCustomerDetails()}
                 {isSignUp && signUpStep === 'details' && role === 'vendor' && renderVendorDetails()}
               </>
+            )}
+
+            {!isVerifying && authMode !== 'forgot-password-verify' && authMode !== 'update-password' && (
+              <p className="mt-8 text-center text-sm text-gray-600 border-t border-gray-100 pt-8">
+                {authMode === 'forgot-password' ? 'Remembered it? ' :
+                 isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                <button onClick={() => switchMode(authMode === 'forgot-password' ? 'sign-in' : isSignUp ? 'sign-in' : 'sign-up')}
+                  className="font-semibold text-orange-600 hover:text-orange-500 focus:outline-none">
+                  {authMode === 'forgot-password' ? 'Back to sign in' : isSignUp ? 'Sign in' : 'Sign up'}
+                </button>
+              </p>
             )}
           </div>
           
