@@ -19,7 +19,7 @@ export default function Landing() {
       <div className="flex-1 bg-white rounded-t-[3rem] shadow-[0_-15px_40px_rgba(0,0,0,0.15)] flex flex-col items-center pt-2 px-6 pb-20 z-10 -mt-[2vh] relative w-full">
         
         {/* Logo */}
-        <div className="w-full max-w-xs mt-2">
+        <div className="w-full max-w-xs mt-12">
           <img src="/assets/logo.png" alt="i-Loyalty Logo" className="w-full h-auto object-contain" />
         </div>
         
