@@ -79,7 +79,6 @@ export default function Layout() {
     { name: 'Home', path: '/', icon: Home },
     { name: 'Profile', path: '/profile', icon: User },
     ...(user?.role === 'vendor' ? [{ name: 'Stats', path: '/stats', icon: TrendingUp }] : []),
-    { name: 'About', path: '/about', icon: Info },
   ];
 
   // ── QR Scan Handler ─────────────────────────────────────────────────────
@@ -415,6 +414,22 @@ export default function Layout() {
                     <MessageSquare className="mr-4 flex-shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-500" />
                     Contact us
                   </a>
+
+                  <Link
+                    to="/about"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`w-full group flex items-center px-2 py-2 text-base font-medium rounded-md ${location.pathname === '/about'
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                  >
+                    <Info
+                      className={`mr-4 flex-shrink-0 h-6 w-6 ${location.pathname === '/about' ? 'text-orange-600' : 'text-gray-400 group-hover:text-gray-500'
+                        }`}
+                      aria-hidden="true"
+                    />
+                    About
+                  </Link>
 
                   <button
                     onClick={handleShare}
