@@ -80,7 +80,6 @@ export default function Layout() {
     { name: 'Profile', path: '/profile', icon: User },
     ...(user?.role === 'vendor' ? [{ name: 'Stats', path: '/stats', icon: TrendingUp }] : []),
     { name: 'About', path: '/about', icon: Info },
-    { name: 'Chat', path: '/chat', icon: MessageSquare },
   ];
 
   // ── QR Scan Handler ─────────────────────────────────────────────────────
@@ -407,6 +406,15 @@ export default function Layout() {
                       </Link>
                     );
                   })}
+
+                  <a
+                    href="mailto:admin@iloyalty.co.za?subject=i-Loyalty%20Support%20Request&body=Hi%20i-Loyalty%20Support,%0A%0A"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="w-full group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    <MessageSquare className="mr-4 flex-shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-500" />
+                    Contact us
+                  </a>
 
                   <button
                     onClick={handleShare}
