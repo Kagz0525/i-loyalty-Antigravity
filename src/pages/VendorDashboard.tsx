@@ -133,7 +133,7 @@ export default function VendorDashboard() {
             <input
               type="text"
               className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 sm:text-sm shadow-sm"
-              placeholder={`Search name, email or phone # (${customerCards.length})`}
+              placeholder={showRewardsDue ? `Total rewards due (${customerCards.length})` : `Search phone or email (${customerCards.length})`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
