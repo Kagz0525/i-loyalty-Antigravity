@@ -435,7 +435,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, record, customer
               
               <h2 className="text-xl font-bold text-gray-900 mb-4">Confirmation Code</h2>
               <p className="text-gray-600 mb-6">
-                A confirmation code {latestRecord.rewardCode} has been sent to your customer's email address. They can present this code to confirm their eligibility for their loyalty reward.
+                A confirmation code {latestRecord.rewardCode} has been sent to your customer's email address ({customer.email}). They can present this code to confirm their eligibility for their loyalty reward.
               </p>
               
               <button
