@@ -46,6 +46,30 @@ export default function Layout() {
     checkAdmin();
   }, [user?.email]);
 
+  const handleShare = async () => {
+    setIsSidebarOpen(false);
+    const shareData = {
+      title: 'i-Loyalty App',
+      text: 'Join i-Loyalty to start earning rewards at your favorite local businesses!',
+      url: 'https://iloyalty.co.za/'
+    };
+    
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        alert('Link copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -385,10 +409,7 @@ export default function Layout() {
                   })}
 
                   <button
-                    onClick={() => {
-                      setIsSidebarOpen(false);
-                      alert('Share functionality placeholder');
-                    }}
+                    onClick={handleShare}
                     className="w-full group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   >
                     <Share2 className="mr-4 flex-shrink-0 h-6 w-6 text-gray-400 group-hover:text-gray-500" />
